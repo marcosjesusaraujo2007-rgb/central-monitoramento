@@ -1186,7 +1186,7 @@ function openNovoUsuario() {
   document.getElementById('u-perfil').value = 'usuario';
   document.getElementById('u-senha-row').style.display = '';
   document.getElementById('modal-usuario-titulo').textContent = 'Novo Usuário';
-  document.getElementById('modal-usuario').classList.add('active');
+  document.getElementById('modal-usuario').classList.add('open');
 }
 
 function editarUsuario(u) {
@@ -1197,7 +1197,7 @@ function editarUsuario(u) {
   document.getElementById('u-perfil').value = u.perfil;
   document.getElementById('u-senha-row').style.display = '';
   document.getElementById('modal-usuario-titulo').textContent = 'Editar Usuário';
-  document.getElementById('modal-usuario').classList.add('active');
+  document.getElementById('modal-usuario').classList.add('open');
 }
 
 async function salvarUsuario() {
