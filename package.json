@@ -1,0 +1,15 @@
+{
+  "name": "central-monitoramento",
+  "version": "1.0.0",
+  "description": "Central de Monitoramento TI",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "seed": "node backend/seed.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.18.2"
+  }
+}

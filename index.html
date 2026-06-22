@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Central de Monitoramento</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0D1117; --bg2: #161B22; --bg3: #21262D; --bg4: #30363D;
+    --border: #30363D; --border2: #484F58;
+    --text: #E6EDF3; --text2: #8B949E; --text3: #6E7681;
+    --blue: #1F6FEB; --blue-light: #388BFD; --blue-bg: #0D2349;
+    --green: #3FB950; --green-bg: #0D2A14; --green-text: #56D364;
+    --yellow: #D29922; --yellow-bg: #2D2000; --yellow-text: #E3B341;
+    --red: #DA3633; --red-bg: #2C0B0B; --red-text: #F85149;
+    --orange: #BD561D; --orange-bg: #2D1500; --orange-text: #F0883E;
+    --purple: #6E40C9; --purple-bg: #1C1040; --purple-text: #A371F7;
+    --radius: 8px; --radius-lg: 12px;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --mono: 'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
+  }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; min-height: 100vh; display: flex; }
+
+  /* SIDEBAR */
+  .sidebar { width: 220px; background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; position: fixed; top: 0; left: 0; height: 100vh; z-index: 50; }
+  .sidebar-logo { padding: 18px 16px 14px; border-bottom: 1px solid var(--border); }
+  .logo-badge { background: var(--blue); color: #fff; font-family: var(--mono); font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; letter-spacing: .08em; display: inline-block; margin-bottom: 6px; }
+  .logo-name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .logo-sub { font-size: 11px; color: var(--text3); margin-top: 1px; }
+  .sidebar-nav { flex: 1; padding: 10px 8px; overflow-y: auto; }
+  .nav-section { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; padding: 14px 8px 6px; }
+  .nav-item { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: var(--radius); cursor: pointer; color: var(--text2); font-size: 13px; transition: all .15s; margin-bottom: 2px; border: 1px solid transparent; }
+  .nav-item:hover { background: var(--bg3); color: var(--text); }
+  .nav-item.active { background: var(--blue-bg); color: var(--blue-light); border-color: rgba(31,111,235,.3); }
+  .nav-item i { font-size: 17px; flex-shrink: 0; }
+  .nav-badge { margin-left: auto; background: var(--red); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 99px; min-width: 18px; text-align: center; }
+  .nav-badge.warn { background: var(--yellow); color: #000; }
+  .nav-badge.ok { background: var(--green); color: #000; }
+  .sidebar-footer { padding: 12px 16px; border-top: 1px solid var(--border); }
+  .footer-info { font-size: 11px; color: var(--text3); }
+  .status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--green); margin-right: 5px; animation: blink 2s infinite; }
+  @keyframes blink { 0%,100%{opacity:1}50%{opacity:.4} }
+
+  /* MAIN */
+  .main { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+  .topbar { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 40; }
+  .topbar-title { font-size: 16px; font-weight: 600; color: var(--text); }
+  .topbar-sub { font-size: 12px; color: var(--text3); margin-top: 1px; }
+  .topbar-actions { display: flex; align-items: center; gap: 10px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: var(--radius); border: 1px solid var(--border2); background: var(--bg3); color: var(--text2); font-size: 12px; cursor: pointer; transition: all .15s; font-family: var(--font); }
+  .btn:hover { background: var(--bg4); color: var(--text); border-color: var(--border2); }
+  .btn-primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .btn-primary:hover { background: var(--blue-light); border-color: var(--blue-light); }
+  .content { padding: 24px; flex: 1; }
+
+  /* PAGES */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* CARDS GRID */
+  .cards-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; cursor: pointer; transition: border-color .15s; }
+  .stat-card:hover { border-color: var(--border2); }
+  .stat-card.active-filter { border-color: var(--blue-light); background: var(--blue-bg); }
+  .stat-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+  .stat-val { font-size: 28px; font-weight: 700; font-family: var(--mono); color: var(--text); }
+  .stat-val.red { color: var(--red-text); }
+  .stat-val.yellow { color: var(--yellow-text); }
+  .stat-val.green { color: var(--green-text); }
+  .stat-val.blue { color: var(--blue-light); }
+  .stat-val.purple { color: var(--purple-text); }
+  .stat-sub { font-size: 11px; color: var(--text3); margin-top: 5px; }
+
+  /* TABLE */
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+  .section-title { font-size: 14px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .filters-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+  .search-box { position: relative; }
+  .search-box input { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 7px 10px 7px 32px; color: var(--text); font-size: 12px; width: 220px; font-family: var(--font); }
+  .search-box input:focus { outline: none; border-color: var(--blue); }
+  .search-box i { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--text3); font-size: 15px; }
+  .filter-chip { padding: 5px 12px; border-radius: 99px; border: 1px solid var(--border); background: transparent; color: var(--text3); font-size: 12px; cursor: pointer; font-family: var(--font); transition: all .15s; }
+  .filter-chip:hover { border-color: var(--border2); color: var(--text); }
+  .filter-chip.on { background: var(--blue-bg); color: var(--blue-light); border-color: rgba(31,111,235,.4); }
+  .table-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: var(--bg3); color: var(--text3); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 11px 14px; border-bottom: 1px solid var(--border); color: var(--text2); font-size: 13px; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg3); }
+  .mono { font-family: var(--mono); font-size: 12px; }
+  .pill { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 99px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .pill-red { background: var(--red-bg); color: var(--red-text); }
+  .pill-yellow { background: var(--yellow-bg); color: var(--yellow-text); }
+  .pill-green { background: var(--green-bg); color: var(--green-text); }
+  .pill-blue { background: var(--blue-bg); color: var(--blue-light); }
+  .pill-orange { background: var(--orange-bg); color: var(--orange-text); }
+  .pill-purple { background: var(--purple-bg); color: var(--purple-text); }
+  .pill-gray { background: var(--bg4); color: var(--text2); }
+  .action-btn { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; color: var(--text3); cursor: pointer; font-size: 12px; transition: all .15s; }
+  .action-btn:hover { border-color: var(--border2); color: var(--text); background: var(--bg3); }
+  .empty-state { text-align: center; padding: 40px; color: var(--text3); }
+  .pager { display: flex; align-items: center; justify-content: space-between; }
+  .pager-info { font-size: 12px; color: var(--text3); }
+  .pager-btns { display: flex; gap: 6px; }
+
+  /* MINI PROGRESS BARS */
+  .prog-bar { height: 5px; background: var(--bg4); border-radius: 3px; overflow: hidden; width: 80px; display: inline-block; vertical-align: middle; }
+  .prog-fill { height: 100%; border-radius: 3px; }
+
+  /* LINK STATUS */
+  .link-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .link-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; transition: border-color .15s; }
+  .link-card:hover { border-color: var(--border2); }
+  .link-card.online { border-left: 3px solid var(--green); }
+  .link-card.offline { border-left: 3px solid var(--red-text); }
+  .link-card.degraded { border-left: 3px solid var(--yellow-text); }
+  .link-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .link-url { font-size: 11px; color: var(--text3); font-family: var(--mono); margin-bottom: 10px; }
+  .link-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .link-stat { text-align: center; }
+  .link-stat-val { font-size: 15px; font-weight: 700; font-family: var(--mono); }
+  .link-stat-label { font-size: 10px; color: var(--text3); margin-top: 2px; }
+  .uptime-bar { display: flex; gap: 2px; margin-top: 10px; }
+  .uptime-seg { flex: 1; height: 4px; border-radius: 2px; }
+
+  /* DASHBOARD UNIFICADO */
+  .dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px; }
+  @media(max-width:800px){ .dash-grid{grid-template-columns:1fr;} }
+  .dash-module { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; }
+  .dash-module-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+  .dash-module-title a { font-size: 11px; color: var(--blue-light); text-decoration: none; cursor: pointer; }
+  .dash-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .dash-row:last-child { border-bottom: none; }
+  .dash-id { font-family: var(--mono); color: var(--text3); min-width: 72px; }
+  .dash-desc { flex: 1; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* MODAL */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 200; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal-box { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius-lg); width: 100%; max-width: 500px; max-height: 85vh; overflow-y: auto; padding: 0; }
+  .modal-head { padding: 18px 20px 14px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; }
+  .modal-body { padding: 18px 20px; }
+  .modal-close { background: none; border: none; color: var(--text3); font-size: 20px; cursor: pointer; padding: 0; line-height: 1; }
+  .modal-close:hover { color: var(--text); }
+  .field-row { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+  .field-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; }
+  .field-val { font-size: 13px; color: var(--text); background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; }
+  .field-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .modal-footer { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+  .form-input { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px; color: var(--text); font-family: var(--font); font-size: 13px; width: 100%; }
+  .form-input:focus { outline: none; border-color: var(--blue); }
+  select.form-input { cursor: pointer; }
+  .form-row { margin-bottom: 14px; }
+  .form-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 5px; display: block; }
+
+  /* TIMELINE */
+  .timeline { margin-top: 12px; }
+  .tl-item { display: flex; gap: 10px; margin-bottom: 12px; }
+  .tl-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--blue); margin-top: 4px; flex-shrink: 0; }
+  .tl-text { font-size: 12px; color: var(--text2); }
+  .tl-time { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg2); }
+  ::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border2); }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+  .tag { display: inline-block; background: var(--bg4); color: var(--text3); font-size: 10px; padding: 2px 7px; border-radius: 4px; margin-right: 4px; }
+  .alert-banner { background: var(--red-bg); border: 1px solid var(--red); color: var(--red-text); border-radius: var(--radius); padding: 10px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-badge">CENTRAL</div>
+    <div class="logo-name">Monitor Operacional</div>
+    <div class="logo-sub">TI + Operação</div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">Visão geral</div>
+    <div class="nav-item active" onclick="goPage('dashboard',this)">
+      <i class="ti ti-layout-dashboard"></i> Dashboard
+    </div>
+    <div class="nav-section">Módulos</div>
+    <div class="nav-item" onclick="goPage('compras',this)" id="nav-compras">
+      <i class="ti ti-shopping-cart"></i> Pedidos de Compra
+      <span class="nav-badge warn" id="nb-compras">0</span>
+    </div>
+    <div class="nav-item" onclick="goPage('manutencao',this)" id="nav-manutencao">
+      <i class="ti ti-tool"></i> Manutenção
+      <span class="nav-badge" id="nb-manut">0</span>
+    </div>
+    <div class="nav-item" onclick="goPage('links',this)" id="nav-links">
+      <i class="ti ti-wifi"></i> Links de Internet
+      <span class="nav-badge ok" id="nb-links">0</span>
+    </div>
+    <div class="nav-section">Ações</div>
+    <div class="nav-item" onclick="openNovoChamado()">
+      <i class="ti ti-plus"></i> Novo Chamado
+    </div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="footer-info"><span class="status-dot"></span>Sistema online</div>
+    <div class="footer-info" style="margin-top:4px;font-size:10px;" id="clock"></div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="page-title">Dashboard Geral</div>
+      <div class="topbar-sub" id="page-sub">Visão unificada de todos os módulos</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="exportCSV()"><i class="ti ti-download"></i> Exportar</button>
+      <button class="btn btn-primary" onclick="openNovoChamado()"><i class="ti ti-plus"></i> Novo</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ==================== DASHBOARD ==================== -->
+    <div class="page active" id="page-dashboard">
+      <div class="cards-row" id="dash-metrics"></div>
+      <div id="dash-alerts"></div>
+      <div class="dash-grid" id="dash-grid"></div>
+    </div>
+
+    <!-- ==================== COMPRAS ==================== -->
+    <div class="page" id="page-compras">
+      <div class="cards-row" id="compras-metrics"></div>
+      <div class="section-header">
+        <div class="section-title"><i class="ti ti-shopping-cart" style="font-size:18px"></i> Pedidos de Compra</div>
+      </div>
+      <div class="filters-row">
+        <div class="search-box"><i class="ti ti-search"></i><input type="text" id="busca-compras" placeholder="Buscar pedido…" oninput="renderCompras()"></div>
+        <button class="filter-chip on" onclick="setFiltroCompras('todos',this)">Todos</button>
+        <button class="filter-chip" onclick="setFiltroCompras('Pendente',this)">Pendentes</button>
+        <button class="filter-chip" onclick="setFiltroCompras('Aprovado',this)">Aprovados</button>
+        <button class="filter-chip" onclick="setFiltroCompras('Em cotação',this)">Em cotação</button>
+        <button class="filter-chip" onclick="setFiltroCompras('Entregue',this)">Entregues</button>
+        <button class="filter-chip" onclick="setFiltroCompras('Cancelado',this)">Cancelados</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>ID</th><th>Descrição</th><th>Solicitante</th><th>Departamento</th>
+            <th>Valor (R$)</th><th>Status</th><th>Abertura</th><th>Conclusão</th><th>Ações</th>
+          </tr></thead>
+          <tbody id="tbody-compras"></tbody>
+        </table>
+      </div>
+      <div class="pager"><span class="pager-info" id="pager-compras"></span>
+        <div class="pager-btns">
+          <button class="btn" id="prev-compras" onclick="changePage('compras',-1)">← Anterior</button>
+          <button class="btn" id="next-compras" onclick="changePage('compras',1)">Próxima →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== MANUTENÇÃO ==================== -->
+    <div class="page" id="page-manutencao">
+      <div class="cards-row" id="manut-metrics"></div>
+      <div class="section-header">
+        <div class="section-title"><i class="ti ti-tool" style="font-size:18px"></i> Chamados de Manutenção</div>
+      </div>
+      <div class="filters-row">
+        <div class="search-box"><i class="ti ti-search"></i><input type="text" id="busca-manut" placeholder="Buscar chamado…" oninput="renderManut()"></div>
+        <button class="filter-chip on" onclick="setFiltroManut('todos',this)">Todos</button>
+        <button class="filter-chip" onclick="setFiltroManut('Aberto',this)">Abertos</button>
+        <button class="filter-chip" onclick="setFiltroManut('Em andamento',this)">Em andamento</button>
+        <button class="filter-chip" onclick="setFiltroManut('Concluído',this)">Concluídos</button>
+        <button class="filter-chip" onclick="setFiltroManut('Crítico',this)">Críticos</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>ID</th><th>Descrição</th><th>Local</th><th>Tipo</th>
+            <th>Responsável</th><th>Status</th><th>Abertura</th><th>Conclusão</th><th>Ações</th>
+          </tr></thead>
+          <tbody id="tbody-manut"></tbody>
+        </table>
+      </div>
+      <div class="pager"><span class="pager-info" id="pager-manut"></span>
+        <div class="pager-btns">
+          <button class="btn" id="prev-manut" onclick="changePage('manut',-1)">← Anterior</button>
+          <button class="btn" id="next-manut" onclick="changePage('manut',1)">Próxima →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== LINKS ==================== -->
+    <div class="page" id="page-links">
+      <div class="cards-row" id="links-metrics"></div>
+      <div class="section-header">
+        <div class="section-title"><i class="ti ti-wifi" style="font-size:18px"></i> Monitoramento de Links</div>
+        <button class="btn" onclick="simularPing()"><i class="ti ti-refresh"></i> Atualizar Ping</button>
+      </div>
+      <div class="link-grid" id="link-grid"></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Link</th><th>Tipo</th><th>IP</th><th>Latência</th><th>Uptime</th><th>Última verificação</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody id="tbody-links"></tbody>
+        </table>
+      </div>
+
+      <div class="section-header" style="margin-top:8px;">
+        <div class="section-title"><i class="ti ti-ticket" style="font-size:18px"></i> Chamados de Link</div>
+        <button class="btn btn-primary" onclick="document.getElementById('novo-modulo').value='links';openNovoChamado()"><i class="ti ti-plus"></i> Novo Chamado</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>Link</th><th>Tipo de Problema</th><th>Descrição</th><th>Responsável</th><th>Prioridade</th><th>Status</th><th>Abertura</th><th>Conclusão</th><th>Ações</th></tr></thead>
+          <tbody id="tbody-links-chamados"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- MODAL DETALHE -->
+<div class="modal-overlay" id="modal-detalhe" onclick="if(event.target===this)closeModal('detalhe')">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <div class="mono" id="m-id" style="font-size:12px;color:#8B949E;"></div>
+        <div id="m-titulo" style="font-size:16px;font-weight:600;color:#E6EDF3;margin-top:4px;"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('detalhe')">×</button>
+    </div>
+    <div class="modal-body" id="m-body"></div>
+    <div class="modal-footer" id="m-footer"></div>
+  </div>
+</div>
+
+<!-- MODAL NOVO CHAMADO -->
+<div class="modal-overlay" id="modal-novo" onclick="if(event.target===this)closeModal('novo')">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div style="font-size:16px;font-weight:600;color:#E6EDF3;">Novo Chamado</div>
+      <button class="modal-close" onclick="closeModal('novo')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label class="form-label">Módulo</label>
+        <select class="form-input" id="novo-modulo" onchange="atualizarFormNovo()">
+          <option value="manutencao">Manutenção</option>
+          <option value="compras">Pedido de Compra</option>
+          <option value="links">Link de Internet</option>
+        </select>
+      </div>
+      <div id="form-novo-campos"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('novo')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarNovo()"><i class="ti ti-check"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR CHAMADO -->
+<div class="modal-overlay" id="modal-editar" onclick="if(event.target===this)closeModal('editar')">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <div class="mono" id="e-id" style="font-size:12px;color:#8B949E;"></div>
+        <div style="font-size:16px;font-weight:600;color:#E6EDF3;margin-top:4px;">Editar Chamado</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('editar')">×</button>
+    </div>
+    <div class="modal-body" id="form-editar-campos"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('editar')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarEdicao()"><i class="ti ti-check"></i> Salvar alterações</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DADOS — carregados da API
+// ============================================================
+let comprasData = [];
+let manutData = [];
+let linksData = [];
+let linksChamados = [];
+
+// Função que busca todos os dados do servidor e atualiza a tela
+async function carregarDados() {
+  const [compras, manut, links, chamados] = await Promise.all([
+    fetch('/api/compras').then(r => r.json()),
+    fetch('/api/manutencao').then(r => r.json()),
+    fetch('/api/links').then(r => r.json()),
+    fetch('/api/links-chamados').then(r => r.json()),
+  ]);
+  comprasData = compras;
+  manutData = manut;
+  // Adiciona historico vazio se não vier do banco
+  manutData.forEach(m => { if(!m.hist) m.hist = []; });
+  // Adiciona historico de uptime simulado se não vier do banco
+  linksData = links.map(l => ({
+    ...l,
+    historico: l.historico || [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+  }));
+  linksChamados = chamados;
+  renderAll();
+}
+
+// ============================================================
+// STATE
+// ============================================================
+const pages = { compras: 1, manut: 1 };
+const filtros = { compras: 'todos', manut: 'todos' };
+const PER = 8;
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+const pageTitles = {
+  dashboard: ['Dashboard Geral','Visão unificada de todos os módulos'],
+  compras: ['Pedidos de Compra','Acompanhamento de solicitações e aprovações'],
+  manutencao: ['Chamados de Manutenção','Ordens de serviço abertas e em andamento'],
+  links: ['Monitoramento de Links','Status de conectividade em tempo real'],
+};
+function goPage(id, el) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if(el) el.classList.add('active');
+  const [t,s] = pageTitles[id];
+  document.getElementById('page-title').textContent = t;
+  document.getElementById('page-sub').textContent = s;
+}
+
+// ============================================================
+// PILLS
+// ============================================================
+function pillCompras(s) {
+  const m = {Pendente:'pill-yellow','Em cotação':'pill-purple',Aprovado:'pill-blue',Entregue:'pill-green',Cancelado:'pill-gray'};
+  return `<span class="pill ${m[s]||'pill-gray'}">${s}</span>`;
+}
+function pillManut(s) {
+  const m = {Crítico:'pill-red','Em andamento':'pill-orange',Aberto:'pill-blue',Concluído:'pill-green'};
+  return `<span class="pill ${m[s]||'pill-gray'}">${s}</span>`;
+}
+function pillLink(s) {
+  const m = {online:'pill-green',offline:'pill-red',degraded:'pill-yellow'};
+  const lb = {online:'Online',offline:'Offline',degraded:'Degradado'};
+  return `<span class="pill ${m[s]||'pill-gray'}">${lb[s]||s}</span>`;
+}
+function prioColor(p) {
+  return {Alta:'pill-red',Média:'pill-yellow',Baixa:'pill-gray'}[p]||'pill-gray';
+}
+
+// ============================================================
+// COMPRAS
+// ============================================================
+function renderComprasMetrics() {
+  const d = comprasData;
+  const cards = [
+    {label:'Total', val: d.length, cls:'blue'},
+    {label:'Pendentes', val: d.filter(x=>x.status==='Pendente').length, cls:'yellow'},
+    {label:'Em cotação', val: d.filter(x=>x.status==='Em cotação').length, cls:'purple'},
+    {label:'Aprovados', val: d.filter(x=>x.status==='Aprovado').length, cls:'blue'},
+    {label:'Entregues', val: d.filter(x=>x.status==='Entregue').length, cls:'green'},
+    {label:'Valor total (R$)', val: 'R$' + d.filter(x=>x.status!=='Cancelado').reduce((a,c)=>a+c.valor,0).toLocaleString('pt-BR'), cls:''},
+  ];
+  document.getElementById('compras-metrics').innerHTML = cards.map(c=>`
+    <div class="stat-card">
+      <div class="stat-label">${c.label}</div>
+      <div class="stat-val ${c.cls}">${c.val}</div>
+    </div>`).join('');
+}
+let filtroCompras = 'todos';
+function setFiltroCompras(f,el) {
+  filtroCompras = f; pages.compras = 1;
+  document.querySelectorAll('#page-compras .filter-chip').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  renderCompras();
+}
+function renderCompras() {
+  const q = document.getElementById('busca-compras').value.toLowerCase();
+  let data = comprasData.filter(c => {
+    const mf = filtroCompras==='todos' || c.status===filtroCompras;
+    const mq = !q || c.id.toLowerCase().includes(q)||c.desc.toLowerCase().includes(q)||c.solicitante.toLowerCase().includes(q)||c.depto.toLowerCase().includes(q);
+    return mf && mq;
+  });
+  const total = data.length, pages_ = Math.max(1,Math.ceil(total/PER));
+  if(pages.compras>pages_) pages.compras=pages_;
+  const slice = data.slice((pages.compras-1)*PER, pages.compras*PER);
+  document.getElementById('pager-compras').textContent = total ? `${(pages.compras-1)*PER+1}–${Math.min(pages.compras*PER,total)} de ${total}` : '';
+  document.getElementById('prev-compras').disabled = pages.compras<=1;
+  document.getElementById('next-compras').disabled = pages.compras>=pages_;
+  document.getElementById('tbody-compras').innerHTML = slice.length ? slice.map(c=>`
+    <tr>
+      <td class="mono" style="color:#388BFD;font-weight:700;">${c.id}</td>
+      <td style="max-width:220px;"><span style="color:#E6EDF3;font-weight:500;">${c.desc}</span></td>
+      <td>${c.solicitante}</td>
+      <td><span class="tag">${c.depto}</span></td>
+      <td class="mono" style="color:#E6EDF3;">R$ ${Number(c.valor).toLocaleString('pt-BR')}</td>
+      <td>${pillCompras(c.status)}</td>
+      <td style="white-space:nowrap;font-size:12px;">${c.data_abertura||'—'}</td>
+      <td style="white-space:nowrap;font-size:12px;color:${c.data_conclusao?'#56D364':'#6E7681'}">${c.data_conclusao||'—'}</td>
+      <td><button class="action-btn" onclick='verDetalhe("compras",${JSON.stringify(c)})'><i class="ti ti-eye"></i></button></td>
+    </tr>`).join('') : `<tr><td colspan="9" class="empty-state">Nenhum pedido encontrado</td></tr>`;
+}
+
+// ============================================================
+// MANUTENÇÃO
+// ============================================================
+function renderManutMetrics() {
+  const d = manutData;
+  document.getElementById('manut-metrics').innerHTML = [
+    {label:'Total',val:d.length,cls:'blue'},
+    {label:'Críticos',val:d.filter(x=>x.status==='Crítico').length,cls:'red'},
+    {label:'Abertos',val:d.filter(x=>x.status==='Aberto').length,cls:'yellow'},
+    {label:'Em andamento',val:d.filter(x=>x.status==='Em andamento').length,cls:'purple'},
+    {label:'Concluídos',val:d.filter(x=>x.status==='Concluído').length,cls:'green'},
+  ].map(c=>`<div class="stat-card"><div class="stat-label">${c.label}</div><div class="stat-val ${c.cls}">${c.val}</div></div>`).join('');
+}
+let filtroManut = 'todos';
+function setFiltroManut(f,el) {
+  filtroManut = f; pages.manut = 1;
+  document.querySelectorAll('#page-manutencao .filter-chip').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  renderManut();
+}
+function renderManut() {
+  const q = document.getElementById('busca-manut').value.toLowerCase();
+  let data = manutData.filter(c => {
+    const mf = filtroManut==='todos'||c.status===filtroManut;
+    const mq = !q||c.id.toLowerCase().includes(q)||c.desc.toLowerCase().includes(q)||c.local.toLowerCase().includes(q)||c.tipo.toLowerCase().includes(q);
+    return mf && mq;
+  });
+  const total = data.length, pages_ = Math.max(1,Math.ceil(total/PER));
+  if(pages.manut>pages_) pages.manut=pages_;
+  const slice = data.slice((pages.manut-1)*PER, pages.manut*PER);
+  document.getElementById('pager-manut').textContent = total ? `${(pages.manut-1)*PER+1}–${Math.min(pages.manut*PER,total)} de ${total}` : '';
+  document.getElementById('prev-manut').disabled = pages.manut<=1;
+  document.getElementById('next-manut').disabled = pages.manut>=pages_;
+  document.getElementById('tbody-manut').innerHTML = slice.length ? slice.map(c=>`
+    <tr>
+      <td class="mono" style="color:#388BFD;font-weight:700;">${c.id}</td>
+      <td style="max-width:200px;"><span style="color:#E6EDF3;font-weight:500;">${c.desc}</span></td>
+      <td>${c.local}</td>
+      <td><span class="tag">${c.tipo}</span></td>
+      <td>${c.resp}</td>
+      <td>${pillManut(c.status)}</td>
+      <td style="white-space:nowrap;font-size:12px;">${c.data_abertura||'—'}</td>
+      <td style="white-space:nowrap;font-size:12px;color:${c.data_conclusao?'#56D364':'#6E7681'}">${c.data_conclusao||'—'}</td>
+      <td><button class="action-btn" onclick='verDetalhe("manut",${JSON.stringify(c)})'><i class="ti ti-eye"></i></button></td>
+    </tr>`).join('') : `<tr><td colspan="9" class="empty-state">Nenhum chamado encontrado</td></tr>`;
+}
+
+// ============================================================
+// LINKS
+// ============================================================
+function statusColor(s) { return {online:'#3FB950',offline:'#F85149',degraded:'#E3B341'}[s]||'#8B949E'; }
+function renderLinksMetrics() {
+  const d = linksData;
+  document.getElementById('links-metrics').innerHTML = [
+    {label:'Total links',val:d.length,cls:'blue'},
+    {label:'Online',val:d.filter(x=>x.status==='online').length,cls:'green'},
+    {label:'Degradados',val:d.filter(x=>x.status==='degraded').length,cls:'yellow'},
+    {label:'Offline',val:d.filter(x=>x.status==='offline').length,cls:'red'},
+    {label:'Uptime médio',val:Math.round(d.reduce((a,c)=>a+c.uptime,0)/d.length*100)/100+'%',cls:''},
+  ].map(c=>`<div class="stat-card"><div class="stat-label">${c.label}</div><div class="stat-val ${c.cls}">${c.val}</div></div>`).join('');
+}
+function renderLinkCards() {
+  document.getElementById('link-grid').innerHTML = linksData.map(l=>{
+    const chamadosAbertos = linksChamados.filter(c=>c.linkId===l.id && c.status!=='Resolvido');
+    const badgeChamado = chamadosAbertos.length > 0
+      ? `<span style="background:var(--red-bg);color:var(--red-text);font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;margin-left:6px;">${chamadosAbertos.length} chamado${chamadosAbertos.length>1?'s':''}</span>`
+      : '';
+    return `
+    <div class="link-card ${l.status}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
+          <div class="link-name">${l.nome}</div>${badgeChamado}
+        </div>
+        ${pillLink(l.status)}
+      </div>
+      <div class="link-url">${l.ip} · ${l.tipo}</div>
+      <div class="uptime-bar">${l.historico.map(h=>`<div class="uptime-seg" style="background:${h?'#3FB950':'#F85149'}"></div>`).join('')}</div>
+      <div class="link-stats">
+        <div class="link-stat"><div class="link-stat-val" style="color:${l.latencia?'#388BFD':'#F85149'}">${l.latencia!=null?l.latencia+'ms':'—'}</div><div class="link-stat-label">Latência</div></div>
+        <div class="link-stat"><div class="link-stat-val" style="color:${l.uptime>=99?'#3FB950':l.uptime>=95?'#E3B341':'#F85149'}">${l.uptime}%</div><div class="link-stat-label">Uptime</div></div>
+        <div class="link-stat"><div class="link-stat-val" style="color:#8B949E">${l.velocidade}</div><div class="link-stat-label">Velocidade</div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function renderLinksTable() {
+  document.getElementById('tbody-links').innerHTML = linksData.map(l=>`
+    <tr>
+      <td style="color:#E6EDF3;font-weight:500;">${l.nome}</td>
+      <td><span class="tag">${l.tipo}</span></td>
+      <td class="mono" style="font-size:12px;">${l.ip}</td>
+      <td class="mono" style="color:${l.latencia?'#388BFD':'#F85149'}">${l.latencia!=null?l.latencia+' ms':'Sem resposta'}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="prog-bar"><div class="prog-fill" style="width:${l.uptime}%;background:${l.uptime>=99?'#3FB950':l.uptime>=95?'#E3B341':'#F85149'}"></div></div>
+          <span class="mono" style="font-size:12px;">${l.uptime}%</span>
+        </div>
+      </td>
+      <td style="font-size:12px;color:#8B949E;">${l.ultima}</td>
+      <td>${pillLink(l.status)}</td>
+      <td><button class="action-btn" onclick='verDetalhe("link",${JSON.stringify(l)})'><i class="ti ti-eye"></i></button></td>
+    </tr>`).join('');
+}
+function renderLinksChamados() {
+  const tbody = document.getElementById('tbody-links-chamados');
+  if(!tbody) return;
+  tbody.innerHTML = linksChamados.length ? linksChamados.map(c=>`
+    <tr>
+      <td class="mono" style="color:#388BFD;font-weight:700;">${c.id}</td>
+      <td style="color:#E6EDF3;font-weight:500;">${c.linkNome}</td>
+      <td><span class="tag">${c.tipo}</span></td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.desc}</td>
+      <td>${c.resp}</td>
+      <td><span class="pill ${prioColor(c.prioridade)}">${c.prioridade}</span></td>
+      <td>${pillManut(c.status==='Resolvido'?'Concluído':c.status==='Em andamento'?'Em andamento':'Aberto')}</td>
+      <td style="font-size:12px;white-space:nowrap;">${c.data_abertura||'—'}</td>
+      <td style="font-size:12px;white-space:nowrap;color:${c.data_conclusao?'#56D364':'#6E7681'}">${c.data_conclusao||'—'}</td>
+      <td style="display:flex;gap:6px;">
+        ${c.status!=='Resolvido'?`<button class="action-btn" title="Marcar como resolvido" onclick="resolverLinkChamado('${c.id}')"><i class="ti ti-check"></i></button>`:''}
+      </td>
+    </tr>`).join('')
+  : `<tr><td colspan="10" class="empty-state">Nenhum chamado de link aberto</td></tr>`;
+}
+
+async function resolverLinkChamado(id) {
+  await fetch('/api/links-chamados/' + id, {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ status: 'Resolvido' })
+  });
+  await carregarDados();
+}
+
+function simularPing() {
+  linksData.forEach(l => {
+    if(l.status==='online') l.latencia = Math.max(2, l.latencia + Math.floor(Math.random()*10-5));
+    else if(l.status==='degraded') l.latencia = Math.max(50, l.latencia + Math.floor(Math.random()*20-10));
+    l.ultima = '18/06 ' + new Date().toTimeString().slice(0,5);
+  });
+  renderLinkCards(); renderLinksTable(); renderLinksMetrics();
+}
+
+// ============================================================
+// DASHBOARD UNIFICADO
+// ============================================================
+function renderDashboard() {
+  const c = comprasData, m = manutData, l = linksData;
+  const criticos = m.filter(x=>x.status==='Crítico').length;
+  const offline = l.filter(x=>x.status==='offline').length;
+  document.getElementById('dash-metrics').innerHTML = [
+    {label:'Pedidos abertos',val:c.filter(x=>['Pendente','Em cotação'].includes(x.status)).length,cls:'yellow'},
+    {label:'Manutenções críticas',val:criticos,cls:criticos>0?'red':'green'},
+    {label:'Links offline',val:offline,cls:offline>0?'red':'green'},
+    {label:'Chamados hoje',val:m.filter(x=>x.data_abertura&&x.data_abertura.startsWith(new Date().toLocaleDateString('pt-BR').split('/').reverse().join('-').slice(8,10)+'/'+new Date().toLocaleDateString('pt-BR').split('/')[1])).length,cls:'blue'},
+    {label:'Valor em aberto',val:'R$'+c.filter(x=>['Pendente','Em cotação','Aprovado'].includes(x.status)).reduce((a,x)=>a+x.valor,0).toLocaleString('pt-BR'),cls:''},
+  ].map(x=>`<div class="stat-card"><div class="stat-label">${x.label}</div><div class="stat-val ${x.cls}">${x.val}</div></div>`).join('');
+
+  let alerts = '';
+  if(criticos>0) alerts += `<div class="alert-banner"><i class="ti ti-alert-triangle" style="font-size:18px"></i> ${criticos} chamado(s) crítico(s) de manutenção aguardando atenção imediata.</div>`;
+  if(offline>0) alerts += `<div class="alert-banner"><i class="ti ti-wifi-off" style="font-size:18px"></i> ${offline} link(s) offline detectado(s). Verifique o módulo de conectividade.</div>`;
+  document.getElementById('dash-alerts').innerHTML = alerts;
+
+  document.getElementById('dash-grid').innerHTML = `
+    <div class="dash-module">
+      <div class="dash-module-title">
+        <span><i class="ti ti-tool" style="margin-right:6px;color:#F85149"></i>Chamados Críticos / Abertos</span>
+        <a onclick="goPage('manutencao',document.getElementById('nav-manutencao'))">Ver todos →</a>
+      </div>
+      ${m.filter(x=>['Crítico','Aberto'].includes(x.status)).slice(0,5).map(x=>`
+        <div class="dash-row">
+          <span class="dash-id">${x.id}</span>
+          <span class="dash-desc">${x.desc}</span>
+          ${pillManut(x.status)}
+        </div>`).join('')}
+    </div>
+    <div class="dash-module">
+      <div class="dash-module-title">
+        <span><i class="ti ti-shopping-cart" style="margin-right:6px;color:#E3B341"></i>Pedidos Pendentes</span>
+        <a onclick="goPage('compras',document.getElementById('nav-compras'))">Ver todos →</a>
+      </div>
+      ${c.filter(x=>['Pendente','Em cotação'].includes(x.status)).slice(0,5).map(x=>`
+        <div class="dash-row">
+          <span class="dash-id">${x.id}</span>
+          <span class="dash-desc">${x.desc}</span>
+          ${pillCompras(x.status)}
+        </div>`).join('')}
+    </div>
+    <div class="dash-module">
+      <div class="dash-module-title">
+        <span><i class="ti ti-wifi" style="margin-right:6px;color:#3FB950"></i>Status dos Links</span>
+        <a onclick="goPage('links',document.getElementById('nav-links'))">Ver todos →</a>
+      </div>
+      ${l.map(x=>`
+        <div class="dash-row">
+          <span class="dash-id" style="min-width:80px;">${x.id}</span>
+          <span class="dash-desc">${x.nome}</span>
+          ${pillLink(x.status)}
+        </div>`).join('')}
+    </div>
+    <div class="dash-module">
+      <div class="dash-module-title"><span><i class="ti ti-clock" style="margin-right:6px;color:#A371F7"></i>Últimas Atualizações</span></div>
+      ${[...m.slice(0,3).map(x=>({id:x.id,desc:x.desc,time:x.data_abertura,tipo:'manut'})),
+         ...c.slice(0,2).map(x=>({id:x.id,desc:x.desc,time:x.data_abertura,tipo:'compra'}))
+        ].map(x=>`
+        <div class="dash-row">
+          <span class="dash-id">${x.id}</span>
+          <span class="dash-desc">${x.desc}</span>
+          <span style="font-size:11px;color:#8B949E;white-space:nowrap;">${x.time}</span>
+        </div>`).join('')}
+    </div>`;
+
+  // Atualizar badges sidebar
+  document.getElementById('nb-compras').textContent = c.filter(x=>['Pendente','Em cotação'].includes(x.status)).length;
+  document.getElementById('nb-manut').textContent = criticos;
+  document.getElementById('nb-links').textContent = l.filter(x=>x.status==='online').length;
+}
+
+// ============================================================
+// MODAIS
+// ============================================================
+function verDetalhe(tipo, d) {
+  if(tipo==='compras') {
+    document.getElementById('m-id').textContent = d.id;
+    document.getElementById('m-titulo').textContent = d.desc;
+    document.getElementById('m-body').innerHTML = `
+      <div class="field-row-2">
+        <div class="field-row"><div class="field-label">Status</div><div class="field-val">${pillCompras(d.status)}</div></div>
+        <div class="field-row"><div class="field-label">Prioridade</div><div class="field-val"><span class="pill ${prioColor(d.prioridade)}">${d.prioridade}</span></div></div>
+      </div>
+      <div class="field-row-2">
+        <div class="field-row"><div class="field-label">Solicitante</div><div class="field-val">${d.solicitante}</div></div>
+        <div class="field-row"><div class="field-label">Departamento</div><div class="field-val">${d.depto}</div></div>
+      </div>
+      <div class="field-row-2">
+        <div class="field-row"><div class="field-label">Valor</div><div class="field-val" style="font-family:var(--mono)">R$ ${Number(d.valor).toLocaleString('pt-BR')}</div></div>
+        <div class="field-row"><div class="field-label">Prazo</div><div class="field-val">${d.prazo||'—'}</div></div>
+      </div>
+      <div class="field-row-2">
+        <div class="field-row"><div class="field-label">Data de abertura</div><div class="field-val">${d.data_abertura||'—'}</div></div>
+        <div class="field-row"><div class="field-label">Data de conclusão</div><div class="field-val" style="color:${d.data_conclusao?'#56D364':'#6E7681'}">${d.data_conclusao||'Não concluído'}</div></div>
+      </div>
+      ${d.obs ? `<div class="field-row"><div class="field-label">Observações</div><div class="field-val">${d.obs}</div></div>` : ''}`;
+    document.getElementById('m-footer').innerHTML = `
+      <button class="btn" onclick="closeModal('detalhe')">Fechar</button>
+      <button class="btn btn-primary" onclick='abrirEdicao("compras","${d.id}")'><i class="ti ti-edit"></i> Editar</button>`;
+  } else if(tipo==='manut') {
+    document.getElementById('m-id').textContent = d.id;
+    document.getElementById('m-titulo').textContent = d.desc;
+    document.getElementById('m-body').innerHTML = `
+      <div class="field-row-2">
+        <div class="field-row"><div class="field-label">Status</div><div class="field-val">${pillManut(d.status)}</div></div>
+        <div class="field-row"><div class="field-label">Prioridade</div><div class="field-val"><span class="pill ${prioColor(d.prioridade)}">${d.prioridade}</span></div></div>
+      </div>
+      <div class="field-row-2">
+        <div class="field-row"><div class="field-label">Local</div><div class="field-val">${d.local}</div></div>
+        <div class="field-row"><div class="field-label">Tipo</div><div class="field-val">${d.tipo}</div></div>
+      </div>
+      <div class="field-row-2">
+        <div class="field-row"><div class="field-label">Responsável</div><div class="field-val">${d.resp}</div></div>
+        <div class="field-row"><div class="field-label">SLA</div><div class="field-val" style="font-family:var(--mono)">${d.sla||'—'}</div></div>
+      </div>
+      <div class="field-row-2">
+        <div class="field-row"><div class="field-label">Data de abertura</div><div class="field-val">${d.data_abertura||'—'}</div></div>
+        <div class="field-row"><div class="field-label">Data de conclusão</div><div class="field-val" style="color:${d.data_conclusao?'#56D364':'#6E7681'}">${d.data_conclusao||'Não concluído'}</div></div>
+      </div>`;
+    document.getElementById('m-footer').innerHTML = `
+      <button class="btn" onclick="closeModal('detalhe')">Fechar</button>
+      <button class="btn btn-primary" onclick='abrirEdicao("manut","${d.id}")'><i class="ti ti-edit"></i> Editar</button>`;
+  } else if(tipo==='link') {
+    document.getElementById('m-id').textContent = d.id;
+    document.getElementById('m-titulo').textContent = d.nome;
+    document.getElementById('m-body').innerHTML = `
+      <div class="field-row-2">
+        <div class="field-row"><div class="field-label">Status</div><div class="field-val">${pillLink(d.status)}</div></div>
+        <div class="field-row"><div class="field-label">Tipo</div><div class="field-val">${d.tipo}</div></div>
+      </div>
+      <div class="field-row-2">
+        <div class="field-row"><div class="field-label">IP</div><div class="field-val" style="font-family:var(--mono)">${d.ip}</div></div>
+        <div class="field-row"><div class="field-label">Velocidade</div><div class="field-val">${d.velocidade}</div></div>
+      </div>
+      <div class="field-row-2">
+        <div class="field-row"><div class="field-label">Latência atual</div><div class="field-val" style="font-family:var(--mono)">${d.latencia!=null?d.latencia+' ms':'Sem resposta'}</div></div>
+        <div class="field-row"><div class="field-label">Uptime</div><div class="field-val" style="font-family:var(--mono)">${d.uptime}%</div></div>
+      </div>
+      <div class="field-row"><div class="field-label">Última verificação</div><div class="field-val">${d.ultima}</div></div>
+      <hr class="divider">
+      <div class="field-label" style="margin-bottom:6px;">Histórico de disponibilidade (últimas 20 verificações)</div>
+      <div class="uptime-bar" style="height:10px;">${d.historico.map(h=>`<div class="uptime-seg" style="background:${h?'#3FB950':'#F85149'};height:10px;border-radius:2px;"></div>`).join('')}</div>
+      ${(()=>{
+        const chs = linksChamados.filter(c=>c.linkId===d.id);
+        if(!chs.length) return '';
+        return `<hr class="divider">
+        <div class="field-label" style="margin-bottom:8px;">Chamados vinculados</div>
+        <div class="timeline">${chs.map(c=>`
+          <div class="tl-item">
+            <div class="tl-dot" style="background:${c.status==='Resolvido'?'#3FB950':'#F85149'}"></div>
+            <div>
+              <div class="tl-text"><span class="mono" style="color:#8B949E;">${c.id}</span> · ${c.tipo} · ${pillManut(c.status==='Resolvido'?'Concluído':c.status==='Em andamento'?'Em andamento':'Aberto')}</div>
+              <div class="tl-text" style="margin-top:2px;">${c.desc}</div>
+              <div class="tl-time">${c.abertura} · Resp: ${c.resp}</div>
+            </div>
+          </div>`).join('')}
+        </div>`;
+      })()}`;
+    document.getElementById('m-footer').innerHTML = `
+      <button class="btn" onclick="closeModal('detalhe')">Fechar</button>
+      <button class="btn btn-primary" onclick="closeModal('detalhe');document.getElementById('novo-modulo').value='links';openNovoChamado()"><i class="ti ti-plus"></i> Abrir Chamado</button>`;
+  }
+  document.getElementById('modal-detalhe').classList.add('open');
+}
+function closeModal(id) { document.getElementById('modal-'+id).classList.remove('open'); }
+
+// ============================================================
+// NOVO CHAMADO
+// ============================================================
+function openNovoChamado() {
+  atualizarFormNovo();
+  document.getElementById('modal-novo').classList.add('open');
+}
+function atualizarFormNovo() {
+  const mod = document.getElementById('novo-modulo').value;
+  if(mod==='manutencao') {
+    document.getElementById('form-novo-campos').innerHTML = `
+      <div class="form-row"><label class="form-label">Descrição do problema</label><input class="form-input" id="n-desc" placeholder="Descreva o problema…"></div>
+      <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><label class="form-label">Local</label><input class="form-input" id="n-local" placeholder="Ex: 2º Andar, Sala 201"></div>
+        <div><label class="form-label">Tipo</label><select class="form-input" id="n-tipo"><option>Elétrica</option><option>Hidráulica</option><option>Refrigeração</option><option>Segurança</option><option>Elevadores</option><option>Pintura</option><option>Outros</option></select></div>
+      </div>
+      <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><label class="form-label">Responsável</label><input class="form-input" id="n-resp" placeholder="Nome do técnico"></div>
+        <div><label class="form-label">SLA</label><input class="form-input" id="n-sla" placeholder="Ex: 2h, 8h, 24h"></div>
+      </div>
+      <div class="form-row"><label class="form-label">Prioridade</label>
+        <select class="form-input" id="n-prio"><option>Alta</option><option selected>Média</option><option>Baixa</option></select>
+      </div>`;
+  } else if(mod==='compras') {
+    document.getElementById('form-novo-campos').innerHTML = `
+      <div class="form-row"><label class="form-label">Descrição do item</label><input class="form-input" id="n-desc" placeholder="Descreva o produto/serviço…"></div>
+      <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><label class="form-label">Solicitante</label><input class="form-input" id="n-solic" placeholder="Nome do solicitante"></div>
+        <div><label class="form-label">Departamento</label><select class="form-input" id="n-depto"><option>TI</option><option>RH</option><option>Administrativo</option><option>Segurança</option><option>Operação</option></select></div>
+      </div>
+      <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><label class="form-label">Valor estimado (R$)</label><input class="form-input" id="n-valor" type="number" placeholder="0,00"></div>
+        <div><label class="form-label">Prazo estimado</label><input class="form-input" id="n-prazo" type="date"></div>
+      </div>
+      <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><label class="form-label">Prioridade</label><select class="form-input" id="n-prio-compra"><option>Alta</option><option selected>Média</option><option>Baixa</option></select></div>
+        <div><label class="form-label">Observações</label><input class="form-input" id="n-obs" placeholder="Opcional…"></div>
+      </div>`;
+  } else {
+    const optsLinks = linksData.map(l=>`<option value="${l.id}">${l.nome}</option>`).join('');
+    document.getElementById('form-novo-campos').innerHTML = `
+      <div class="form-row"><label class="form-label">Link afetado</label><select class="form-input" id="n-link">${optsLinks}</select></div>
+      <div class="form-row"><label class="form-label">Tipo de problema</label>
+        <select class="form-input" id="n-tipo-link">
+          <option>Queda total</option><option>Lentidão / Baixa velocidade</option>
+          <option>Instabilidade / Intermitente</option><option>Falha de VPN</option>
+          <option>Alta latência</option><option>Outro</option>
+        </select>
+      </div>
+      <div class="form-row"><label class="form-label">Descrição do problema</label><input class="form-input" id="n-desc" placeholder="Descreva o que está acontecendo…"></div>
+      <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><label class="form-label">Responsável</label><input class="form-input" id="n-resp-link" placeholder="Técnico ou provedor"></div>
+        <div><label class="form-label">Prioridade</label><select class="form-input" id="n-prio-link"><option>Alta</option><option selected>Média</option><option>Baixa</option></select></div>
+      </div>`;
+  }
+}
+async function salvarNovo() {
+  const mod = document.getElementById('novo-modulo').value;
+  const desc = document.getElementById('n-desc').value.trim();
+  if(!desc){ alert('Preencha a descrição.'); return; }
+
+  if(mod==='manutencao') {
+    await fetch('/api/manutencao', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        desc,
+        local: document.getElementById('n-local').value||'—',
+        tipo: document.getElementById('n-tipo').value,
+        resp: document.getElementById('n-resp').value||'—',
+        sla: document.getElementById('n-sla').value||'—',
+        prioridade: document.getElementById('n-prio').value
+      })
+    });
+  } else if(mod==='compras') {
+    await fetch('/api/compras', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        desc,
+        solicitante: document.getElementById('n-solic').value||'—',
+        depto: document.getElementById('n-depto').value,
+        valor: parseFloat(document.getElementById('n-valor').value)||0,
+        prazo: document.getElementById('n-prazo').value||'—',
+        prioridade: document.getElementById('n-prio-compra').value,
+        obs: document.getElementById('n-obs').value||''
+      })
+    });
+  } else {
+    const linkId = document.getElementById('n-link').value;
+    const linkNome = linksData.find(l=>l.id===linkId)?.nome || linkId;
+    await fetch('/api/links-chamados', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        linkId, linkNome,
+        tipo: document.getElementById('n-tipo-link').value,
+        desc,
+        resp: document.getElementById('n-resp-link').value||'—',
+        prioridade: document.getElementById('n-prio-link').value
+      })
+    });
+  }
+  closeModal('novo');
+  await carregarDados();
+}
+
+// ============================================================
+// EDITAR CHAMADO
+// ============================================================
+let edicaoAtual = null;
+function escAttr(v){ return String(v==null?'':v).replace(/"/g,'&quot;'); }
+
+function abrirEdicao(tipo, id) {
+  closeModal('detalhe');
+  const d = tipo==='compras' ? comprasData.find(x=>x.id===id) : manutData.find(x=>x.id===id);
+  if(!d) return;
+  edicaoAtual = {tipo, id};
+  document.getElementById('e-id').textContent = d.id;
+
+  const opt = (lista, sel) => lista.map(o=>`<option ${o===sel?'selected':''}>${o}</option>`).join('');
+
+  if(tipo==='compras') {
+    document.getElementById('form-editar-campos').innerHTML = `
+      <div class="form-row"><label class="form-label">Descrição</label><input class="form-input" id="e-desc" value="${escAttr(d.desc)}"></div>
+      <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><label class="form-label">Solicitante</label><input class="form-input" id="e-solic" value="${escAttr(d.solicitante)}"></div>
+        <div><label class="form-label">Departamento</label><select class="form-input" id="e-depto">${opt(['TI','RH','Administrativo','Segurança','Operação'], d.depto)}</select></div>
+      </div>
+      <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><label class="form-label">Valor (R$)</label><input class="form-input" id="e-valor" type="number" value="${d.valor}"></div>
+        <div><label class="form-label">Prazo</label><input class="form-input" id="e-prazo" value="${escAttr(d.prazo)}"></div>
+      </div>
+      <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><label class="form-label">Status</label><select class="form-input" id="e-status">${opt(['Pendente','Em cotação','Aprovado','Entregue','Cancelado'], d.status)}</select></div>
+        <div><label class="form-label">Prioridade</label><select class="form-input" id="e-prio">${opt(['Alta','Média','Baixa'], d.prioridade)}</select></div>
+      </div>
+      <div class="form-row"><label class="form-label">Observações</label><input class="form-input" id="e-obs" value="${escAttr(d.obs)}"></div>`;
+  } else {
+    document.getElementById('form-editar-campos').innerHTML = `
+      <div class="form-row"><label class="form-label">Descrição</label><input class="form-input" id="e-desc" value="${escAttr(d.desc)}"></div>
+      <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><label class="form-label">Local</label><input class="form-input" id="e-local" value="${escAttr(d.local)}"></div>
+        <div><label class="form-label">Tipo</label><select class="form-input" id="e-tipo">${opt(['Elétrica','Hidráulica','Refrigeração','Segurança','Elevadores','Pintura','Outros'], d.tipo)}</select></div>
+      </div>
+      <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><label class="form-label">Responsável</label><input class="form-input" id="e-resp" value="${escAttr(d.resp)}"></div>
+        <div><label class="form-label">SLA</label><input class="form-input" id="e-sla" value="${escAttr(d.sla)}"></div>
+      </div>
+      <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><label class="form-label">Status</label><select class="form-input" id="e-status">${opt(['Aberto','Em andamento','Crítico','Concluído'], d.status)}</select></div>
+        <div><label class="form-label">Prioridade</label><select class="form-input" id="e-prio">${opt(['Alta','Média','Baixa'], d.prioridade)}</select></div>
+      </div>`;
+  }
+  document.getElementById('modal-editar').classList.add('open');
+}
+
+async function salvarEdicao() {
+  if(!edicaoAtual) return;
+  const {tipo, id} = edicaoAtual;
+  const desc = document.getElementById('e-desc').value.trim();
+  if(!desc){ alert('Preencha a descrição.'); return; }
+
+  if(tipo==='compras') {
+    await fetch('/api/compras/' + id, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        desc,
+        solicitante: document.getElementById('e-solic').value||'—',
+        depto: document.getElementById('e-depto').value,
+        valor: parseFloat(document.getElementById('e-valor').value)||0,
+        prazo: document.getElementById('e-prazo').value||'—',
+        status: document.getElementById('e-status').value,
+        prioridade: document.getElementById('e-prio').value,
+        obs: document.getElementById('e-obs').value
+      })
+    });
+  } else {
+    await fetch('/api/manutencao/' + id, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        desc,
+        local: document.getElementById('e-local').value||'—',
+        tipo: document.getElementById('e-tipo').value,
+        resp: document.getElementById('e-resp').value||'—',
+        sla: document.getElementById('e-sla').value||'—',
+        status: document.getElementById('e-status').value,
+        prioridade: document.getElementById('e-prio').value
+      })
+    });
+  }
+  closeModal('editar');
+  edicaoAtual = null;
+  await carregarDados();
+}
+
+// ============================================================
+// EXPORT CSV
+// ============================================================
+function exportCSV() {
+  const page = document.querySelector('.page.active').id.replace('page-','');
+  let rows = [], headers = [];
+  if(page==='compras') {
+    headers = ['ID','Descricao','Solicitante','Departamento','Valor','Status','Prazo'];
+    rows = comprasData.map(c=>[c.id,c.desc,c.solicitante,c.depto,c.valor,c.status,c.prazo]);
+  } else if(page==='manutencao') {
+    headers = ['ID','Descricao','Local','Tipo','Responsavel','Status','SLA','Abertura'];
+    rows = manutData.map(c=>[c.id,c.desc,c.local,c.tipo,c.resp,c.status,c.sla,c.abertura]);
+  } else if(page==='links') {
+    headers = ['ID','Nome','Tipo','IP','Latencia','Uptime','Status','Ultima'];
+    rows = linksData.map(l=>[l.id,l.nome,l.tipo,l.ip,l.latencia,l.uptime,l.status,l.ultima]);
+  } else { alert('Exporte a partir de um módulo específico.'); return; }
+  const csv = [headers,...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent('﻿'+csv);
+  a.download = `export-${page}-${Date.now()}.csv`;
+  a.click();
+}
+
+// ============================================================
+// PAGER + INIT
+// ============================================================
+function changePage(mod, dir) {
+  pages[mod] += dir;
+  if(mod==='compras') renderCompras();
+  else renderManut();
+}
+
+function renderAll() {
+  renderComprasMetrics(); renderCompras();
+  renderManutMetrics(); renderManut();
+  renderLinksMetrics(); renderLinkCards(); renderLinksTable(); renderLinksChamados();
+  renderDashboard();
+}
+
+function tick() {
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString('pt-BR');
+}
+tick(); setInterval(tick, 1000);
+setInterval(()=>{ simularPing(); renderDashboard(); }, 30000);
+
+// Carrega os dados do servidor ao iniciar
+carregarDados();
+</script>
+</body>
+</html>
