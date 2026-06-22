@@ -205,6 +205,9 @@
     <div class="nav-item" onclick="openNovoChamado()">
       <i class="ti ti-plus"></i> Novo Chamado
     </div>
+    <div class="nav-item admin-only" onclick="goPage('usuarios',this)" id="nav-usuarios" style="display:none">
+      <i class="ti ti-users"></i> Usuários
+    </div>
   </nav>
   <div class="sidebar-footer">
     <div class="footer-info"><span class="status-dot"></span>Sistema online</div>
@@ -326,8 +329,58 @@
       </div>
     </div>
 
+    <!-- PÁGINA USUÁRIOS -->
+    <div class="page" id="page-usuarios">
+      <div class="section-header">
+        <div class="section-title"><i class="ti ti-users" style="font-size:18px"></i> Usuários do Sistema</div>
+        <button class="btn btn-primary" onclick="openNovoUsuario()"><i class="ti ti-plus"></i> Novo Usuário</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Nome</th><th>Usuário</th><th>Perfil</th><th>Ações</th></tr></thead>
+          <tbody id="tbody-usuarios"></tbody>
+        </table>
+      </div>
+    </div>
+
   </div><!-- /content -->
 </div><!-- /main -->
+
+<!-- MODAL NOVO USUÁRIO -->
+<div class="modal-overlay" id="modal-usuario" onclick="if(event.target===this)closeModal('usuario')">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-head">
+      <div style="font-size:16px;font-weight:600;color:#E6EDF3;" id="modal-usuario-titulo">Novo Usuário</div>
+      <button class="modal-close" onclick="closeModal('usuario')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="u-id">
+      <div class="form-row">
+        <label class="form-label">Nome completo</label>
+        <input class="form-input" id="u-nome" placeholder="Ex: João Silva">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Usuário (login)</label>
+        <input class="form-input" id="u-usuario" placeholder="Ex: joao.silva">
+      </div>
+      <div class="form-row" id="u-senha-row">
+        <label class="form-label">Senha</label>
+        <input class="form-input" type="password" id="u-senha" placeholder="Mínimo 6 caracteres">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Perfil</label>
+        <select class="form-input" id="u-perfil">
+          <option value="usuario">Usuário (visualizar e criar)</option>
+          <option value="admin">Administrador (acesso total)</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('usuario')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarUsuario()"><i class="ti ti-check"></i> Salvar</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL DETALHE -->
 <div class="modal-overlay" id="modal-detalhe" onclick="if(event.target===this)closeModal('detalhe')">
@@ -396,18 +449,27 @@ let manutData = [];
 let linksData = [];
 let linksChamados = [];
 
+// Perfil do usuário logado
+let usuarioLogado = null;
+
 // Verifica sessão e redireciona para login se não autenticado
 async function verificarSessao() {
   try {
     const res = await fetch('/api/me');
     if (res.status === 401) { window.location.href = '/login.html'; return; }
-    const user = await res.json();
+    usuarioLogado = await res.json();
     const el = document.getElementById('nomeUsuario');
-    if (el) el.textContent = '👤 ' + user.nome;
+    if (el) el.textContent = (usuarioLogado.perfil === 'admin' ? 'Admin: ' : '') + usuarioLogado.nome;
+    // Mostrar elementos só para admin
+    if (usuarioLogado.perfil === 'admin') {
+      document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
+    }
   } catch {
     window.location.href = '/login.html';
   }
 }
+
+function isAdmin() { return usuarioLogado && usuarioLogado.perfil === 'admin'; }
 
 async function logout() {
   await fetch('/api/logout', { method: 'POST' });
@@ -450,6 +512,7 @@ const pageTitles = {
   compras: ['Pedidos de Compra','Acompanhamento de solicitações e aprovações'],
   manutencao: ['Chamados de Manutenção','Ordens de serviço abertas e em andamento'],
   links: ['Monitoramento de Links','Status de conectividade em tempo real'],
+  usuarios: ['Gerenciar Usuários','Cadastro e permissões de acesso'],
 };
 function goPage(id, el) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -459,6 +522,7 @@ function goPage(id, el) {
   const [t,s] = pageTitles[id];
   document.getElementById('page-title').textContent = t;
   document.getElementById('page-sub').textContent = s;
+  if(id === 'usuarios') renderUsuarios();
 }
 
 // ============================================================
@@ -530,7 +594,10 @@ function renderCompras() {
       <td>${pillCompras(c.status)}</td>
       <td style="white-space:nowrap;font-size:12px;">${c.data_abertura||'—'}</td>
       <td style="white-space:nowrap;font-size:12px;color:${c.data_conclusao?'#56D364':'#6E7681'}">${c.data_conclusao||'—'}</td>
-      <td><button class="action-btn" onclick='verDetalhe("compras",${JSON.stringify(c)})'><i class="ti ti-eye"></i></button></td>
+      <td>
+        <button class="action-btn" onclick='verDetalhe("compras",${JSON.stringify(c)})'><i class="ti ti-eye"></i></button>
+        ${isAdmin() ? `<button class="action-btn" onclick='abrirEditar("compras",${JSON.stringify(c)})'><i class="ti ti-pencil"></i></button>` : ''}
+      </td>
     </tr>`).join('') : `<tr><td colspan="9" class="empty-state">Nenhum pedido encontrado</td></tr>`;
 }
 
@@ -577,7 +644,10 @@ function renderManut() {
       <td>${pillManut(c.status)}</td>
       <td style="white-space:nowrap;font-size:12px;">${c.data_abertura||'—'}</td>
       <td style="white-space:nowrap;font-size:12px;color:${c.data_conclusao?'#56D364':'#6E7681'}">${c.data_conclusao||'—'}</td>
-      <td><button class="action-btn" onclick='verDetalhe("manut",${JSON.stringify(c)})'><i class="ti ti-eye"></i></button></td>
+      <td>
+        <button class="action-btn" onclick='verDetalhe("manut",${JSON.stringify(c)})'><i class="ti ti-eye"></i></button>
+        ${isAdmin() ? `<button class="action-btn" onclick='abrirEditar("manut",${JSON.stringify(c)})'><i class="ti ti-pencil"></i></button>` : ''}
+      </td>
     </tr>`).join('') : `<tr><td colspan="9" class="empty-state">Nenhum chamado encontrado</td></tr>`;
 }
 
@@ -652,7 +722,7 @@ function renderLinksChamados() {
       <td style="font-size:12px;white-space:nowrap;">${c.data_abertura||'—'}</td>
       <td style="font-size:12px;white-space:nowrap;color:${c.data_conclusao?'#56D364':'#6E7681'}">${c.data_conclusao||'—'}</td>
       <td style="display:flex;gap:6px;">
-        ${c.status!=='Resolvido'?`<button class="action-btn" title="Marcar como resolvido" onclick="resolverLinkChamado('${c.id}')"><i class="ti ti-check"></i></button>`:''}
+        ${isAdmin() && c.status!=='Resolvido'?`<button class="action-btn" title="Marcar como resolvido" onclick="resolverLinkChamado('${c.id}')"><i class="ti ti-check"></i></button>`:''}
       </td>
     </tr>`).join('')
   : `<tr><td colspan="10" class="empty-state">Nenhum chamado de link aberto</td></tr>`;
@@ -1089,9 +1159,81 @@ function tick() {
 tick(); setInterval(tick, 1000);
 setInterval(()=>{ simularPing(); renderDashboard(); }, 30000);
 
+// ============================================================
+// USUÁRIOS
+// ============================================================
+async function renderUsuarios() {
+  const res = await fetch('/api/usuarios');
+  if (!res.ok) return;
+  const usuarios = await res.json();
+  document.getElementById('tbody-usuarios').innerHTML = usuarios.map(u => `
+    <tr>
+      <td style="font-weight:500">${u.nome}</td>
+      <td class="mono" style="color:#388BFD">${u.usuario}</td>
+      <td><span class="pill ${u.perfil==='admin'?'pill-blue':'pill-gray'}">${u.perfil==='admin'?'Admin':'Usuário'}</span></td>
+      <td style="display:flex;gap:6px;">
+        <button class="action-btn" onclick='editarUsuario(${JSON.stringify(u)})'><i class="ti ti-pencil"></i></button>
+        <button class="action-btn" style="color:#F85149" onclick="excluirUsuario(${u.id},'${u.usuario}')"><i class="ti ti-trash"></i></button>
+      </td>
+    </tr>`).join('');
+}
+
+function openNovoUsuario() {
+  document.getElementById('u-id').value = '';
+  document.getElementById('u-nome').value = '';
+  document.getElementById('u-usuario').value = '';
+  document.getElementById('u-senha').value = '';
+  document.getElementById('u-perfil').value = 'usuario';
+  document.getElementById('u-senha-row').style.display = '';
+  document.getElementById('modal-usuario-titulo').textContent = 'Novo Usuário';
+  document.getElementById('modal-usuario').classList.add('active');
+}
+
+function editarUsuario(u) {
+  document.getElementById('u-id').value = u.id;
+  document.getElementById('u-nome').value = u.nome;
+  document.getElementById('u-usuario').value = u.usuario;
+  document.getElementById('u-senha').value = '';
+  document.getElementById('u-perfil').value = u.perfil;
+  document.getElementById('u-senha-row').style.display = '';
+  document.getElementById('modal-usuario-titulo').textContent = 'Editar Usuário';
+  document.getElementById('modal-usuario').classList.add('active');
+}
+
+async function salvarUsuario() {
+  const id = document.getElementById('u-id').value;
+  const nome = document.getElementById('u-nome').value.trim();
+  const usuario = document.getElementById('u-usuario').value.trim();
+  const senha = document.getElementById('u-senha').value;
+  const perfil = document.getElementById('u-perfil').value;
+  if (!nome || !usuario) return alert('Preencha nome e usuário.');
+  if (!id && !senha) return alert('Informe uma senha.');
+
+  const body = { nome, usuario, perfil };
+  if (senha) body.senha = senha;
+
+  const res = await fetch(id ? `/api/usuarios/${id}` : '/api/usuarios', {
+    method: id ? 'PUT' : 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  if (!res.ok) return alert(data.erro || 'Erro ao salvar.');
+  closeModal('usuario');
+  renderUsuarios();
+}
+
+async function excluirUsuario(id, nome) {
+  if (!confirm(`Excluir o usuário "${nome}"?`)) return;
+  await fetch(`/api/usuarios/${id}`, { method: 'DELETE' });
+  renderUsuarios();
+}
+
 // Carrega os dados do servidor ao iniciar
-verificarSessao();
-carregarDados();
+verificarSessao().then(() => {
+  carregarDados();
+  if (isAdmin()) renderUsuarios();
+});
 </script>
 </body>
 </html>

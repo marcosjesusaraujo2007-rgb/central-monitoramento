@@ -189,6 +189,44 @@ app.put('/api/links-chamados/:id', autenticado, (req, res) => {
 });
 
 // ============================================================
+// USUÁRIOS
+// ============================================================
+app.get('/api/usuarios', autenticado, (req, res) => {
+  if (req.session.usuario.perfil !== 'admin') return res.status(403).json({ erro: 'Sem permissão' });
+  res.json(db.prepare('SELECT id, nome, usuario, perfil FROM usuarios').all());
+});
+
+app.post('/api/usuarios', autenticado, (req, res) => {
+  if (req.session.usuario.perfil !== 'admin') return res.status(403).json({ erro: 'Sem permissão' });
+  const { nome, usuario, senha, perfil } = req.body;
+  if (!nome || !usuario || !senha) return res.status(400).json({ erro: 'Campos obrigatórios' });
+  const existe = db.prepare('SELECT id FROM usuarios WHERE usuario = ?').get(usuario);
+  if (existe) return res.status(400).json({ erro: 'Usuário já existe' });
+  const hash = bcrypt.hashSync(senha, 10);
+  db.prepare('INSERT INTO usuarios (nome, usuario, senha, perfil) VALUES (?, ?, ?, ?)').run(nome, usuario, hash, perfil || 'usuario');
+  res.json({ ok: true });
+});
+
+app.put('/api/usuarios/:id', autenticado, (req, res) => {
+  if (req.session.usuario.perfil !== 'admin') return res.status(403).json({ erro: 'Sem permissão' });
+  const { nome, usuario, senha, perfil } = req.body;
+  if (senha) {
+    const hash = bcrypt.hashSync(senha, 10);
+    db.prepare('UPDATE usuarios SET nome=?, usuario=?, senha=?, perfil=? WHERE id=?').run(nome, usuario, hash, perfil, req.params.id);
+  } else {
+    db.prepare('UPDATE usuarios SET nome=?, usuario=?, perfil=? WHERE id=?').run(nome, usuario, perfil, req.params.id);
+  }
+  res.json({ ok: true });
+});
+
+app.delete('/api/usuarios/:id', autenticado, (req, res) => {
+  if (req.session.usuario.perfil !== 'admin') return res.status(403).json({ erro: 'Sem permissão' });
+  if (Number(req.params.id) === req.session.usuario.id) return res.status(400).json({ erro: 'Não pode excluir a si mesmo' });
+  db.prepare('DELETE FROM usuarios WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
+
+// ============================================================
 // INICIAR SERVIDOR
 // ============================================================
 const PORT = process.env.PORT || 3000;
