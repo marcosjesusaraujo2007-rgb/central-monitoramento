@@ -848,7 +848,7 @@ function verDetalhe(tipo, d) {
       ${d.obs ? `<div class="field-row"><div class="field-label">Observações</div><div class="field-val">${d.obs}</div></div>` : ''}`;
     document.getElementById('m-footer').innerHTML = `
       <button class="btn" onclick="closeModal('detalhe')">Fechar</button>
-      <button class="btn btn-primary" onclick='abrirEdicao("compras","${d.id}")'><i class="ti ti-edit"></i> Editar</button>`;
+      ${isAdmin() ? `<button class="btn btn-primary" onclick='abrirEdicao("compras","${d.id}")'><i class="ti ti-edit"></i> Editar</button>` : ''}`;
   } else if(tipo==='manut') {
     document.getElementById('m-id').textContent = d.id;
     document.getElementById('m-titulo').textContent = d.desc;
@@ -871,7 +871,7 @@ function verDetalhe(tipo, d) {
       </div>`;
     document.getElementById('m-footer').innerHTML = `
       <button class="btn" onclick="closeModal('detalhe')">Fechar</button>
-      <button class="btn btn-primary" onclick='abrirEdicao("manut","${d.id}")'><i class="ti ti-edit"></i> Editar</button>`;
+      ${isAdmin() ? `<button class="btn btn-primary" onclick='abrirEdicao("manut","${d.id}")'><i class="ti ti-edit"></i> Editar</button>` : ''}`;
   } else if(tipo==='link') {
     document.getElementById('m-id').textContent = d.id;
     document.getElementById('m-titulo').textContent = d.nome;
