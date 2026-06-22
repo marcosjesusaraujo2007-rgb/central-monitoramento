@@ -1,6 +1,14 @@
 const express = require('express');
 const cors = require('cors');
 const db = require('./database');
+const fs = require('fs');
+const path2 = require('path');
+
+// Popula banco automaticamente se estiver vazio
+const total = db.prepare('SELECT COUNT(*) as n FROM compras').get().n;
+if (total === 0) {
+  require('./seed');
+}
 
 const app = express();
 app.use(cors());
