@@ -62,6 +62,14 @@ db.exec(`
     data_conclusao TEXT
   );
 
+  CREATE TABLE IF NOT EXISTS usuarios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome TEXT NOT NULL,
+    usuario TEXT UNIQUE NOT NULL,
+    senha TEXT NOT NULL,
+    perfil TEXT DEFAULT 'admin'
+  );
+
   INSERT OR IGNORE INTO contadores (modulo, ultimo) VALUES ('compras', 0);
   INSERT OR IGNORE INTO contadores (modulo, ultimo) VALUES ('manutencao', 0);
   INSERT OR IGNORE INTO contadores (modulo, ultimo) VALUES ('links_chamados', 0);

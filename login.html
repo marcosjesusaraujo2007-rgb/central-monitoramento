@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login — Central de Monitoramento</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0D1117;
+    color: #E6EDF3;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .card {
+    background: #161B22;
+    border: 1px solid #30363D;
+    border-radius: 12px;
+    padding: 40px;
+    width: 100%;
+    max-width: 380px;
+  }
+  .logo {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  .logo-badge {
+    background: #1F6FEB;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 6px;
+    letter-spacing: .08em;
+    display: inline-block;
+    margin-bottom: 10px;
+  }
+  .logo h1 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #E6EDF3;
+  }
+  .logo p {
+    font-size: 13px;
+    color: #8B949E;
+    margin-top: 4px;
+  }
+  .field {
+    margin-bottom: 16px;
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    color: #8B949E;
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+  input {
+    width: 100%;
+    background: #0D1117;
+    border: 1px solid #30363D;
+    border-radius: 8px;
+    color: #E6EDF3;
+    font-size: 14px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  input:focus { border-color: #1F6FEB; }
+  .btn {
+    width: 100%;
+    background: #1F6FEB;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 11px;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: background .15s;
+  }
+  .btn:hover { background: #388BFD; }
+  .btn:disabled { background: #30363D; cursor: not-allowed; }
+  .erro {
+    background: #2C0B0B;
+    border: 1px solid #DA3633;
+    color: #F85149;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    margin-top: 16px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <div class="logo-badge">CENTRAL</div>
+    <h1>Monitor Operacional</h1>
+    <p>Sistema de Chamados TI</p>
+  </div>
+
+  <div class="field">
+    <label>Usuário</label>
+    <input type="text" id="usuario" placeholder="Digite seu usuário" autocomplete="username">
+  </div>
+  <div class="field">
+    <label>Senha</label>
+    <input type="password" id="senha" placeholder="Digite sua senha" autocomplete="current-password">
+  </div>
+
+  <button class="btn" id="btnLogin" onclick="login()">Entrar</button>
+  <div class="erro" id="erro"></div>
+</div>
+
+<script>
+  document.getElementById('senha').addEventListener('keydown', e => {
+    if (e.key === 'Enter') login();
+  });
+
+  async function login() {
+    const usuario = document.getElementById('usuario').value.trim();
+    const senha = document.getElementById('senha').value;
+    const btn = document.getElementById('btnLogin');
+    const erro = document.getElementById('erro');
+
+    if (!usuario || !senha) {
+      mostrarErro('Preencha usuário e senha.');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Entrando...';
+    erro.style.display = 'none';
+
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usuario, senha })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        window.location.href = '/';
+      } else {
+        mostrarErro(data.erro || 'Erro ao fazer login.');
+      }
+    } catch {
+      mostrarErro('Erro de conexão com o servidor.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Entrar';
+    }
+  }
+
+  function mostrarErro(msg) {
+    const erro = document.getElementById('erro');
+    erro.textContent = msg;
+    erro.style.display = 'block';
+  }
+</script>
+</body>
+</html>

@@ -1,8 +1,9 @@
 const express = require('express');
 const cors = require('cors');
+const session = require('express-session');
+const bcrypt = require('bcryptjs');
+const path = require('path');
 const db = require('./database');
-const fs = require('fs');
-const path2 = require('path');
 
 // Popula banco automaticamente se estiver vazio
 const total = db.prepare('SELECT COUNT(*) as n FROM compras').get().n;
@@ -10,13 +11,65 @@ if (total === 0) {
   require('./seed');
 }
 
+// Cria usuário admin padrão se não existir
+const adminExiste = db.prepare("SELECT id FROM usuarios WHERE usuario = 'admin'").get();
+if (!adminExiste) {
+  const hash = bcrypt.hashSync('admin123', 10);
+  db.prepare("INSERT INTO usuarios (nome, usuario, senha, perfil) VALUES ('Administrador', 'admin', ?, 'admin')").run(hash);
+}
+
 const app = express();
 app.use(cors());
 app.use(express.json());
-const path = require('path');
+app.use(session({
+  secret: 'central-ti-secret-2024',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { maxAge: 8 * 60 * 60 * 1000 } // 8 horas
+}));
+
 const FRONT = path.join(__dirname, '..');
 app.use(express.static(FRONT));
-app.get('/', (req, res) => res.sendFile(path.join(FRONT, 'index.html')));
+
+// Middleware de autenticação
+function autenticado(req, res, next) {
+  if (req.session && req.session.usuario) return next();
+  res.status(401).json({ erro: 'Não autenticado' });
+}
+
+// ============================================================
+// AUTH
+// ============================================================
+app.get('/', (req, res) => {
+  if (req.session && req.session.usuario) {
+    res.sendFile(path.join(FRONT, 'index.html'));
+  } else {
+    res.sendFile(path.join(FRONT, 'login.html'));
+  }
+});
+
+app.post('/api/login', (req, res) => {
+  const { usuario, senha } = req.body;
+  const user = db.prepare('SELECT * FROM usuarios WHERE usuario = ?').get(usuario);
+  if (!user || !bcrypt.compareSync(senha, user.senha)) {
+    return res.status(401).json({ erro: 'Usuário ou senha incorretos' });
+  }
+  req.session.usuario = { id: user.id, nome: user.nome, usuario: user.usuario, perfil: user.perfil };
+  res.json({ ok: true, nome: user.nome });
+});
+
+app.post('/api/logout', (req, res) => {
+  req.session.destroy();
+  res.json({ ok: true });
+});
+
+app.get('/api/me', (req, res) => {
+  if (req.session && req.session.usuario) {
+    res.json(req.session.usuario);
+  } else {
+    res.status(401).json({ erro: 'Não autenticado' });
+  }
+});
 
 // Gera próximo ID sequencial para um módulo
 function proximoId(modulo, prefixo) {
@@ -45,11 +98,11 @@ const STATUS_CONCLUSAO = ['Concluído', 'Resolvido', 'Entregue', 'Cancelado'];
 // ============================================================
 // COMPRAS
 // ============================================================
-app.get('/api/compras', (req, res) => {
+app.get('/api/compras', autenticado, (req, res) => {
   res.json(db.prepare('SELECT * FROM compras ORDER BY numero DESC').all());
 });
 
-app.post('/api/compras', (req, res) => {
+app.post('/api/compras', autenticado, (req, res) => {
   const { desc, solicitante, depto, valor, prazo, prioridade, obs } = req.body;
   const { id, numero } = proximoId('compras', 'PC');
   db.prepare(`
@@ -59,7 +112,7 @@ app.post('/api/compras', (req, res) => {
   res.json({ ok: true, id });
 });
 
-app.put('/api/compras/:id', (req, res) => {
+app.put('/api/compras/:id', autenticado, (req, res) => {
   const { desc, solicitante, depto, valor, status, prazo, prioridade, obs, data_conclusao } = req.body;
   const conclusao = data_conclusao || (STATUS_CONCLUSAO.includes(status) ? agora() : null);
   db.prepare(`
@@ -72,11 +125,11 @@ app.put('/api/compras/:id', (req, res) => {
 // ============================================================
 // MANUTENÇÃO
 // ============================================================
-app.get('/api/manutencao', (req, res) => {
+app.get('/api/manutencao', autenticado, (req, res) => {
   res.json(db.prepare('SELECT * FROM manutencao ORDER BY numero DESC').all());
 });
 
-app.post('/api/manutencao', (req, res) => {
+app.post('/api/manutencao', autenticado, (req, res) => {
   const { desc, local, tipo, resp, sla, prioridade } = req.body;
   const { id, numero } = proximoId('manutencao', 'MNT');
   db.prepare(`
@@ -86,7 +139,7 @@ app.post('/api/manutencao', (req, res) => {
   res.json({ ok: true, id });
 });
 
-app.put('/api/manutencao/:id', (req, res) => {
+app.put('/api/manutencao/:id', autenticado, (req, res) => {
   const { desc, local, tipo, resp, status, sla, prioridade, data_conclusao } = req.body;
   const conclusao = data_conclusao || (STATUS_CONCLUSAO.includes(status) ? agora() : null);
   db.prepare(`
@@ -99,11 +152,11 @@ app.put('/api/manutencao/:id', (req, res) => {
 // ============================================================
 // LINKS
 // ============================================================
-app.get('/api/links', (req, res) => {
+app.get('/api/links', autenticado, (req, res) => {
   res.json(db.prepare('SELECT * FROM links').all());
 });
 
-app.put('/api/links/:id', (req, res) => {
+app.put('/api/links/:id', autenticado, (req, res) => {
   const { latencia, uptime, status, ultima } = req.body;
   db.prepare('UPDATE links SET latencia=?, uptime=?, status=?, ultima=? WHERE id=?')
     .run(latencia, uptime, status, ultima, req.params.id);
@@ -113,11 +166,11 @@ app.put('/api/links/:id', (req, res) => {
 // ============================================================
 // CHAMADOS DE LINK
 // ============================================================
-app.get('/api/links-chamados', (req, res) => {
+app.get('/api/links-chamados', autenticado, (req, res) => {
   res.json(db.prepare('SELECT * FROM links_chamados ORDER BY numero DESC').all());
 });
 
-app.post('/api/links-chamados', (req, res) => {
+app.post('/api/links-chamados', autenticado, (req, res) => {
   const { linkId, linkNome, tipo, desc, resp, prioridade } = req.body;
   const { id, numero } = proximoId('links_chamados', 'LCH');
   db.prepare(`
@@ -127,7 +180,7 @@ app.post('/api/links-chamados', (req, res) => {
   res.json({ ok: true, id });
 });
 
-app.put('/api/links-chamados/:id', (req, res) => {
+app.put('/api/links-chamados/:id', autenticado, (req, res) => {
   const { status, data_conclusao } = req.body;
   const conclusao = data_conclusao || (STATUS_CONCLUSAO.includes(status) ? agora() : null);
   db.prepare('UPDATE links_chamados SET status=?, data_conclusao=? WHERE id=?')
@@ -138,7 +191,7 @@ app.put('/api/links-chamados/:id', (req, res) => {
 // ============================================================
 // INICIAR SERVIDOR
 // ============================================================
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor rodando em http://localhost:${PORT}`);
 });

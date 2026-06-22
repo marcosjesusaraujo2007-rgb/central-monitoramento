@@ -209,6 +209,8 @@
   <div class="sidebar-footer">
     <div class="footer-info"><span class="status-dot"></span>Sistema online</div>
     <div class="footer-info" style="margin-top:4px;font-size:10px;" id="clock"></div>
+    <div class="footer-info" style="margin-top:6px;font-size:11px;color:#8B949E;" id="nomeUsuario"></div>
+    <button onclick="logout()" style="margin-top:8px;width:100%;background:#21262D;border:1px solid #30363D;color:#8B949E;border-radius:6px;padding:6px;font-size:11px;cursor:pointer;">Sair</button>
   </div>
 </aside>
 
@@ -393,6 +395,24 @@ let comprasData = [];
 let manutData = [];
 let linksData = [];
 let linksChamados = [];
+
+// Verifica sessão e redireciona para login se não autenticado
+async function verificarSessao() {
+  try {
+    const res = await fetch('/api/me');
+    if (res.status === 401) { window.location.href = '/login.html'; return; }
+    const user = await res.json();
+    const el = document.getElementById('nomeUsuario');
+    if (el) el.textContent = '👤 ' + user.nome;
+  } catch {
+    window.location.href = '/login.html';
+  }
+}
+
+async function logout() {
+  await fetch('/api/logout', { method: 'POST' });
+  window.location.href = '/login.html';
+}
 
 // Função que busca todos os dados do servidor e atualiza a tela
 async function carregarDados() {
@@ -1070,6 +1090,7 @@ tick(); setInterval(tick, 1000);
 setInterval(()=>{ simularPing(); renderDashboard(); }, 30000);
 
 // Carrega os dados do servidor ao iniciar
+verificarSessao();
 carregarDados();
 </script>
 </body>
