@@ -113,12 +113,17 @@ app.post('/api/compras', autenticado, (req, res) => {
 });
 
 app.put('/api/compras/:id', autenticado, (req, res) => {
-  const { desc, solicitante, depto, valor, status, prazo, prioridade, obs, data_conclusao } = req.body;
-  const conclusao = data_conclusao || (STATUS_CONCLUSAO.includes(status) ? agora() : null);
+  const { desc, solicitante, depto, valor, status, prazo, prioridade, obs, data_abertura, data_conclusao } = req.body;
+  const conclusao = data_conclusao !== undefined ? data_conclusao : (STATUS_CONCLUSAO.includes(status) ? agora() : null);
+  const abertura = data_abertura !== undefined ? data_abertura : null;
+  const atual = db.prepare('SELECT data_abertura, data_conclusao FROM compras WHERE id=?').get(req.params.id);
   db.prepare(`
-    UPDATE compras SET desc=?, solicitante=?, depto=?, valor=?, status=?, prazo=?, prioridade=?, obs=?, data_conclusao=?
+    UPDATE compras SET desc=?, solicitante=?, depto=?, valor=?, status=?, prazo=?, prioridade=?, obs=?, data_abertura=?, data_conclusao=?
     WHERE id=?
-  `).run(desc, solicitante, depto, valor, status, prazo, prioridade, obs, conclusao, req.params.id);
+  `).run(desc, solicitante, depto, valor, status, prazo, prioridade, obs,
+    abertura || atual.data_abertura,
+    conclusao !== null ? conclusao : atual.data_conclusao,
+    req.params.id);
   res.json({ ok: true });
 });
 
@@ -140,12 +145,16 @@ app.post('/api/manutencao', autenticado, (req, res) => {
 });
 
 app.put('/api/manutencao/:id', autenticado, (req, res) => {
-  const { desc, local, tipo, resp, status, sla, prioridade, data_conclusao } = req.body;
-  const conclusao = data_conclusao || (STATUS_CONCLUSAO.includes(status) ? agora() : null);
+  const { desc, local, tipo, resp, status, sla, prioridade, data_abertura, data_conclusao } = req.body;
+  const conclusao = data_conclusao !== undefined ? data_conclusao : (STATUS_CONCLUSAO.includes(status) ? agora() : null);
+  const atual = db.prepare('SELECT data_abertura, data_conclusao FROM manutencao WHERE id=?').get(req.params.id);
   db.prepare(`
-    UPDATE manutencao SET desc=?, local=?, tipo=?, resp=?, status=?, sla=?, prioridade=?, data_conclusao=?
+    UPDATE manutencao SET desc=?, local=?, tipo=?, resp=?, status=?, sla=?, prioridade=?, data_abertura=?, data_conclusao=?
     WHERE id=?
-  `).run(desc, local, tipo, resp, status, sla, prioridade, conclusao, req.params.id);
+  `).run(desc, local, tipo, resp, status, sla, prioridade,
+    data_abertura || atual.data_abertura,
+    conclusao !== null ? conclusao : atual.data_conclusao,
+    req.params.id);
   res.json({ ok: true });
 });
 

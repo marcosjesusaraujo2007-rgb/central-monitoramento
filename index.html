@@ -1061,6 +1061,10 @@ function abrirEdicao(tipo, id) {
         <div><label class="form-label">Status</label><select class="form-input" id="e-status">${opt(['Pendente','Em cotação','Aprovado','Entregue','Cancelado'], d.status)}</select></div>
         <div><label class="form-label">Prioridade</label><select class="form-input" id="e-prio">${opt(['Alta','Média','Baixa'], d.prioridade)}</select></div>
       </div>
+      <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><label class="form-label">Data de Abertura</label><input class="form-input" id="e-abertura" value="${escAttr(d.data_abertura)}" placeholder="DD/MM/AAAA HH:MM"></div>
+        <div><label class="form-label">Data de Conclusão</label><input class="form-input" id="e-conclusao" value="${escAttr(d.data_conclusao)}" placeholder="Automático ao concluir"></div>
+      </div>
       <div class="form-row"><label class="form-label">Observações</label><input class="form-input" id="e-obs" value="${escAttr(d.obs)}"></div>`;
   } else {
     document.getElementById('form-editar-campos').innerHTML = `
@@ -1074,8 +1078,12 @@ function abrirEdicao(tipo, id) {
         <div><label class="form-label">SLA</label><input class="form-input" id="e-sla" value="${escAttr(d.sla)}"></div>
       </div>
       <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        <div><label class="form-label">Status</label><select class="form-input" id="e-status">${opt(['Aberto','Em andamento','Crítico','Concluído'], d.status)}</select></div>
+        <div><label class="form-label">Status</label><select class="form-input" id="e-status">${opt(['Aberto','Em andamento','Crítico','Concluído','Cancelado'], d.status)}</select></div>
         <div><label class="form-label">Prioridade</label><select class="form-input" id="e-prio">${opt(['Alta','Média','Baixa'], d.prioridade)}</select></div>
+      </div>
+      <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><label class="form-label">Data de Abertura</label><input class="form-input" id="e-abertura" value="${escAttr(d.data_abertura)}" placeholder="DD/MM/AAAA HH:MM"></div>
+        <div><label class="form-label">Data de Conclusão</label><input class="form-input" id="e-conclusao" value="${escAttr(d.data_conclusao)}" placeholder="Automático ao concluir"></div>
       </div>`;
   }
   document.getElementById('modal-editar').classList.add('open');
@@ -1099,7 +1107,9 @@ async function salvarEdicao() {
         prazo: document.getElementById('e-prazo').value||'—',
         status: document.getElementById('e-status').value,
         prioridade: document.getElementById('e-prio').value,
-        obs: document.getElementById('e-obs').value
+        obs: document.getElementById('e-obs').value,
+        data_abertura: document.getElementById('e-abertura').value||null,
+        data_conclusao: document.getElementById('e-conclusao').value||null
       })
     });
   } else {
@@ -1113,7 +1123,9 @@ async function salvarEdicao() {
         resp: document.getElementById('e-resp').value||'—',
         sla: document.getElementById('e-sla').value||'—',
         status: document.getElementById('e-status').value,
-        prioridade: document.getElementById('e-prio').value
+        prioridade: document.getElementById('e-prio').value,
+        data_abertura: document.getElementById('e-abertura').value||null,
+        data_conclusao: document.getElementById('e-conclusao').value||null
       })
     });
   }
