@@ -247,6 +247,7 @@
       <div class="topbar-sub" id="page-sub">Visão unificada de todos os módulos</div>
     </div>
     <div class="topbar-actions">
+      <span id="dash-updated" style="font-size:11px;color:#6E7681;display:none;"><i class="ti ti-refresh" style="font-size:13px;margin-right:4px;"></i>Atualizado às <span id="dash-updated-time"></span></span>
       <button class="btn" onclick="exportCSV()"><i class="ti ti-download"></i> Exportar</button>
       <button class="btn btn-primary" onclick="openNovoChamado()"><i class="ti ti-plus"></i> Novo</button>
     </div>
@@ -256,7 +257,7 @@
 
     <!-- ==================== DASHBOARD ==================== -->
     <div class="page active" id="page-dashboard">
-      <div class="cards-row" id="dash-metrics"></div>
+      <div class="charts-kpi" id="dash-metrics"></div>
       <div id="dash-alerts"></div>
       <div class="dash-grid" id="dash-grid"></div>
     </div>
@@ -721,75 +722,111 @@ async function resolverLinkChamado(id) {
 // DASHBOARD UNIFICADO
 // ============================================================
 function renderDashboard() {
-  const c = comprasData, m = manutData, l = linksData;
+  const c = comprasData, m = manutData, l = linksData, lc = linksChamados;
   const criticos = m.filter(x=>x.status==='Crítico').length;
   const offline = l.filter(x=>x.status==='offline').length;
-  document.getElementById('dash-metrics').innerHTML = [
-    {label:'Pedidos abertos',val:c.filter(x=>['Pendente','Em cotação'].includes(x.status)).length,cls:'yellow'},
-    {label:'Manutenções críticas',val:criticos,cls:criticos>0?'red':'green'},
-    {label:'Links offline',val:offline,cls:offline>0?'red':'green'},
-    {label:'Chamados hoje',val:m.filter(x=>x.data_abertura&&x.data_abertura.startsWith(new Date().toLocaleDateString('pt-BR').split('/').reverse().join('-').slice(8,10)+'/'+new Date().toLocaleDateString('pt-BR').split('/')[1])).length,cls:'blue'},
-    {label:'Valor em aberto',val:'R$'+c.filter(x=>['Pendente','Em cotação','Aprovado'].includes(x.status)).reduce((a,x)=>a+x.valor,0).toLocaleString('pt-BR'),cls:''},
-  ].map(x=>`<div class="stat-card"><div class="stat-label">${x.label}</div><div class="stat-val ${x.cls}">${x.val}</div></div>`).join('');
+  const pedidosAbertos = c.filter(x=>['Pendente','Em cotação'].includes(x.status)).length;
+  const valorAberto = c.filter(x=>['Pendente','Em cotação','Aprovado'].includes(x.status)).reduce((a,x)=>a+x.valor,0);
+  const hoje = new Date();
+  const ddHoje = String(hoje.getDate()).padStart(2,'0');
+  const mmHoje = String(hoje.getMonth()+1).padStart(2,'0');
+  const aaHoje = hoje.getFullYear();
+  const prefixoHoje = `${ddHoje}/${mmHoje}/${aaHoje}`;
+  const chamadosHoje = [...m,...lc].filter(x=>x.data_abertura&&x.data_abertura.startsWith(prefixoHoje)).length;
 
+  // KPI cards com ícones
+  document.getElementById('dash-metrics').innerHTML = [
+    {icon:'ti-shopping-cart', cls:'yellow', val: pedidosAbertos, label:'Pedidos em aberto', sub: pedidosAbertos===1?'pedido aguardando':'pedidos aguardando'},
+    {icon:'ti-alert-triangle', cls: criticos>0?'red':'green', val: criticos, label:'Manutenções críticas', sub: criticos>0?'atenção imediata':'sem críticos'},
+    {icon:'ti-wifi-off', cls: offline>0?'red':'green', val: offline, label:'Links offline', sub: `${l.filter(x=>x.status==='online').length} online de ${l.length}`},
+    {icon:'ti-calendar-event', cls:'blue', val: chamadosHoje, label:'Chamados hoje', sub: 'abertos hoje'},
+    {icon:'ti-currency-dollar', cls:'purple', val:'R$'+valorAberto.toLocaleString('pt-BR',{minimumFractionDigits:0}), label:'Valor em aberto', sub:'pedidos pendentes'},
+  ].map(k=>`
+    <div class="kpi-card">
+      <div class="kpi-icon ${k.cls}"><i class="ti ${k.icon}"></i></div>
+      <div class="kpi-info">
+        <div class="kpi-val">${k.val}</div>
+        <div class="kpi-label">${k.label}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px;">${k.sub}</div>
+      </div>
+    </div>`).join('');
+
+  // Alertas
   let alerts = '';
   if(criticos>0) alerts += `<div class="alert-banner"><i class="ti ti-alert-triangle" style="font-size:18px"></i> ${criticos} chamado(s) crítico(s) de manutenção aguardando atenção imediata.</div>`;
   if(offline>0) alerts += `<div class="alert-banner"><i class="ti ti-wifi-off" style="font-size:18px"></i> ${offline} link(s) offline detectado(s). Verifique o módulo de conectividade.</div>`;
   document.getElementById('dash-alerts').innerHTML = alerts;
 
+  // Timestamp de atualização
+  const updEl = document.getElementById('dash-updated');
+  const hh = String(hoje.getHours()).padStart(2,'0');
+  const min = String(hoje.getMinutes()).padStart(2,'0');
+  const ss = String(hoje.getSeconds()).padStart(2,'0');
+  document.getElementById('dash-updated-time').textContent = `${hh}:${min}:${ss}`;
+  updEl.style.display = 'inline-flex';
+
+  // Função helper para botão "Ver todos"
+  const verTodos = (page, navId, label='Ver todos') =>
+    `<button onclick="goPage('${page}',document.getElementById('${navId}'))" style="font-size:11px;background:none;border:1px solid #30363D;color:#388BFD;padding:3px 10px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:4px;"><i class="ti ti-arrow-right" style="font-size:12px;"></i>${label}</button>`;
+
+  const emptyRow = (msg) => `<div style="padding:24px 0;text-align:center;color:#6E7681;font-size:12px;">${msg}</div>`;
+
   document.getElementById('dash-grid').innerHTML = `
     <div class="dash-module">
       <div class="dash-module-title">
         <span><i class="ti ti-tool" style="margin-right:6px;color:#F85149"></i>Chamados Críticos / Abertos</span>
-        <a onclick="goPage('manutencao',document.getElementById('nav-manutencao'))">Ver todos →</a>
+        ${verTodos('manutencao','nav-manutencao')}
       </div>
       ${m.filter(x=>['Crítico','Aberto'].includes(x.status)).slice(0,5).map(x=>`
         <div class="dash-row">
           <span class="dash-id">${x.id}</span>
           <span class="dash-desc">${x.desc}</span>
           ${pillManut(x.status)}
-        </div>`).join('')}
+        </div>`).join('') || emptyRow('Nenhum chamado crítico ou aberto')}
     </div>
     <div class="dash-module">
       <div class="dash-module-title">
         <span><i class="ti ti-shopping-cart" style="margin-right:6px;color:#E3B341"></i>Pedidos Pendentes</span>
-        <a onclick="goPage('compras',document.getElementById('nav-compras'))">Ver todos →</a>
+        ${verTodos('compras','nav-compras')}
       </div>
       ${c.filter(x=>['Pendente','Em cotação'].includes(x.status)).slice(0,5).map(x=>`
         <div class="dash-row">
           <span class="dash-id">${x.id}</span>
           <span class="dash-desc">${x.desc}</span>
           ${pillCompras(x.status)}
-        </div>`).join('')}
+        </div>`).join('') || emptyRow('Nenhum pedido pendente')}
     </div>
     <div class="dash-module">
       <div class="dash-module-title">
-        <span><i class="ti ti-wifi" style="margin-right:6px;color:#3FB950"></i>Status dos Links</span>
-        <a onclick="goPage('links',document.getElementById('nav-links'))">Ver todos →</a>
+        <span><i class="ti ti-wifi" style="margin-right:6px;color:#388BFD"></i>Chamados de Link Abertos</span>
+        ${verTodos('links','nav-links')}
       </div>
-      ${l.map(x=>`
+      ${lc.filter(x=>x.status!=='Resolvido').slice(0,5).map(x=>`
         <div class="dash-row">
-          <span class="dash-id" style="min-width:80px;">${x.id}</span>
-          <span class="dash-desc">${x.nome}</span>
-          ${pillLink(x.status)}
-        </div>`).join('')}
+          <span class="dash-id">${x.id}</span>
+          <span class="dash-desc">${x.linkNome} — ${x.tipo}</span>
+          ${pillManut(x.status==='Resolvido'?'Concluído':x.status==='Em andamento'?'Em andamento':'Aberto')}
+        </div>`).join('') || emptyRow('Nenhum chamado de link em aberto')}
     </div>
     <div class="dash-module">
-      <div class="dash-module-title"><span><i class="ti ti-clock" style="margin-right:6px;color:#A371F7"></i>Últimas Atualizações</span></div>
-      ${[...m.slice(0,3).map(x=>({id:x.id,desc:x.desc,time:x.data_abertura,tipo:'manut'})),
-         ...c.slice(0,2).map(x=>({id:x.id,desc:x.desc,time:x.data_abertura,tipo:'compra'}))
-        ].map(x=>`
+      <div class="dash-module-title">
+        <span><i class="ti ti-clock" style="margin-right:6px;color:#A371F7"></i>Últimas Atualizações</span>
+        ${verTodos('graficos','nav-graficos','Ver gráficos')}
+      </div>
+      ${[...m.slice(0,3).map(x=>({id:x.id,desc:x.desc,time:x.data_abertura})),
+         ...c.slice(0,2).map(x=>({id:x.id,desc:x.desc,time:x.data_abertura}))
+        ].sort((a,b)=>b.time>a.time?1:-1).map(x=>`
         <div class="dash-row">
           <span class="dash-id">${x.id}</span>
           <span class="dash-desc">${x.desc}</span>
-          <span style="font-size:11px;color:#8B949E;white-space:nowrap;">${x.time}</span>
+          <span style="font-size:11px;color:#8B949E;white-space:nowrap;">${x.time||'—'}</span>
         </div>`).join('')}
     </div>`;
 
-  // Atualizar badges sidebar
-  document.getElementById('nb-compras').textContent = c.filter(x=>['Pendente','Em cotação'].includes(x.status)).length;
+  // Badges sidebar
+  document.getElementById('nb-compras').textContent = pedidosAbertos;
   document.getElementById('nb-manut').textContent = criticos;
-  document.getElementById('nb-links').textContent = l.filter(x=>x.status==='online').length;
+  document.getElementById('nb-links').textContent = lc.filter(x=>x.status!=='Resolvido').length;
 }
 
 // ============================================================
