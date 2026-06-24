@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Central de Monitoramento</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -58,6 +59,24 @@
   /* PAGES */
   .page { display: none; }
   .page.active { display: block; }
+
+  /* GRÁFICOS */
+  .charts-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .kpi-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; display: flex; align-items: center; gap: 16px; }
+  .kpi-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+  .kpi-icon.blue { background: var(--blue-bg); color: var(--blue-light); }
+  .kpi-icon.green { background: var(--green-bg); color: var(--green-text); }
+  .kpi-icon.yellow { background: var(--yellow-bg); color: var(--yellow-text); }
+  .kpi-icon.red { background: var(--red-bg); color: var(--red-text); }
+  .kpi-info { flex: 1; }
+  .kpi-val { font-size: 26px; font-weight: 700; font-family: var(--mono); color: var(--text); line-height: 1; }
+  .kpi-label { font-size: 12px; color: var(--text3); margin-top: 4px; }
+  .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .charts-row.full { grid-template-columns: 1fr; }
+  .chart-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; }
+  .chart-title { font-size: 12px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 16px; }
+  .chart-wrap { position: relative; }
+  .chart-wrap canvas { max-height: 260px; }
 
   /* CARDS GRID */
   .cards-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
@@ -188,6 +207,9 @@
     <div class="nav-item active" onclick="goPage('dashboard',this)">
       <i class="ti ti-layout-dashboard"></i> Dashboard
     </div>
+    <div class="nav-item" onclick="goPage('graficos',this)" id="nav-graficos">
+      <i class="ti ti-chart-bar"></i> Gráficos
+    </div>
     <div class="nav-section">Módulos</div>
     <div class="nav-item" onclick="goPage('compras',this)" id="nav-compras">
       <i class="ti ti-shopping-cart"></i> Pedidos de Compra
@@ -237,6 +259,27 @@
       <div class="cards-row" id="dash-metrics"></div>
       <div id="dash-alerts"></div>
       <div class="dash-grid" id="dash-grid"></div>
+    </div>
+
+    <!-- ==================== GRÁFICOS ==================== -->
+    <div class="page" id="page-graficos">
+      <div class="charts-kpi" id="graficos-kpi"></div>
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-title"><i class="ti ti-chart-bar" style="margin-right:6px"></i>Status dos Chamados</div>
+          <div class="chart-wrap"><canvas id="chart-status"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title"><i class="ti ti-chart-donut" style="margin-right:6px"></i>Distribuição por Módulo</div>
+          <div class="chart-wrap"><canvas id="chart-modulo"></canvas></div>
+        </div>
+      </div>
+      <div class="charts-row full">
+        <div class="chart-card">
+          <div class="chart-title"><i class="ti ti-chart-line" style="margin-right:6px"></i>Abertura de Chamados — Últimos 14 Dias</div>
+          <div class="chart-wrap"><canvas id="chart-linha"></canvas></div>
+        </div>
+      </div>
     </div>
 
     <!-- ==================== COMPRAS ==================== -->
@@ -496,9 +539,10 @@ const PER = 8;
 // ============================================================
 const pageTitles = {
   dashboard: ['Dashboard Geral','Visão unificada de todos os módulos'],
+  graficos: ['Análise e Gráficos','Indicadores e tendências do sistema'],
   compras: ['Pedidos de Compra','Acompanhamento de solicitações e aprovações'],
   manutencao: ['Chamados de Manutenção','Ordens de serviço abertas e em andamento'],
-  links: ['Monitoramento de Links','Status de conectividade em tempo real'],
+  links: ['Chamados de Link','Registro de problemas de conectividade'],
   usuarios: ['Gerenciar Usuários','Cadastro e permissões de acesso'],
 };
 function goPage(id, el) {
@@ -510,6 +554,7 @@ function goPage(id, el) {
   document.getElementById('page-title').textContent = t;
   document.getElementById('page-sub').textContent = s;
   if(id === 'usuarios') renderUsuarios();
+  if(id === 'graficos') renderGraficos();
 }
 
 // ============================================================
@@ -1070,6 +1115,139 @@ function changePage(mod, dir) {
   pages[mod] += dir;
   if(mod==='compras') renderCompras();
   else renderManut();
+}
+
+// ============================================================
+// GRÁFICOS
+// ============================================================
+let _charts = {};
+function destroyChart(id) { if(_charts[id]) { _charts[id].destroy(); delete _charts[id]; } }
+
+function renderGraficos() {
+  const c = comprasData, m = manutData, lc = linksChamados;
+  const total = c.length + m.length + lc.length;
+  const resolvidos = c.filter(x=>['Entregue','Cancelado'].includes(x.status)).length
+    + m.filter(x=>['Concluído','Cancelado'].includes(x.status)).length
+    + lc.filter(x=>x.status==='Resolvido').length;
+  const abertos = m.filter(x=>['Aberto','Crítico'].includes(x.status)).length
+    + c.filter(x=>['Pendente','Em cotação'].includes(x.status)).length
+    + lc.filter(x=>x.status==='Aberto').length;
+  const taxa = total > 0 ? Math.round(resolvidos / total * 100) : 0;
+
+  // KPI cards
+  document.getElementById('graficos-kpi').innerHTML = [
+    {icon:'ti-ticket',cls:'blue',val:total,label:'Total de Chamados'},
+    {icon:'ti-alert-circle',cls:'red',val:abertos,label:'Em Aberto'},
+    {icon:'ti-circle-check',cls:'green',val:resolvidos,label:'Resolvidos / Concluídos'},
+    {icon:'ti-trending-up',cls:'yellow',val:taxa+'%',label:'Taxa de Resolução'},
+  ].map(k=>`
+    <div class="kpi-card">
+      <div class="kpi-icon ${k.cls}"><i class="ti ${k.icon}"></i></div>
+      <div class="kpi-info"><div class="kpi-val">${k.val}</div><div class="kpi-label">${k.label}</div></div>
+    </div>`).join('');
+
+  // Paleta
+  const cfg = Chart.defaults;
+  cfg.color = '#8B949E';
+  cfg.borderColor = '#30363D';
+  cfg.font.family = "'Segoe UI', system-ui, sans-serif";
+
+  // Gráfico 1 — Barras: status por módulo
+  destroyChart('status');
+  const statusLabels = ['Aberto / Pendente','Em andamento / Cotação','Concluído / Entregue','Crítico','Cancelado'];
+  const statusManut  = [
+    m.filter(x=>x.status==='Aberto').length,
+    m.filter(x=>x.status==='Em andamento').length,
+    m.filter(x=>x.status==='Concluído').length,
+    m.filter(x=>x.status==='Crítico').length,
+    m.filter(x=>x.status==='Cancelado').length,
+  ];
+  const statusCompras = [
+    c.filter(x=>x.status==='Pendente').length,
+    c.filter(x=>x.status==='Em cotação').length,
+    c.filter(x=>x.status==='Entregue').length,
+    0,
+    c.filter(x=>x.status==='Cancelado').length,
+  ];
+  const statusLinks = [
+    lc.filter(x=>x.status==='Aberto').length,
+    lc.filter(x=>x.status==='Em andamento').length,
+    lc.filter(x=>x.status==='Resolvido').length,
+    0,
+    lc.filter(x=>x.status==='Cancelado').length,
+  ];
+  _charts.status = new Chart(document.getElementById('chart-status'), {
+    type: 'bar',
+    data: {
+      labels: statusLabels,
+      datasets: [
+        {label:'Manutenção', data: statusManut,  backgroundColor:'rgba(248,81,73,.8)',  borderRadius:4},
+        {label:'Compras',    data: statusCompras, backgroundColor:'rgba(227,179,65,.8)', borderRadius:4},
+        {label:'Links',      data: statusLinks,   backgroundColor:'rgba(56,139,253,.8)', borderRadius:4},
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:true,
+      plugins:{ legend:{ labels:{ color:'#8B949E', boxWidth:12, padding:16 } } },
+      scales:{
+        x:{ ticks:{color:'#8B949E'}, grid:{color:'#21262D'} },
+        y:{ ticks:{color:'#8B949E', stepSize:1}, grid:{color:'#21262D'}, beginAtZero:true }
+      }
+    }
+  });
+
+  // Gráfico 2 — Donut: distribuição por módulo
+  destroyChart('modulo');
+  _charts.modulo = new Chart(document.getElementById('chart-modulo'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Manutenção','Compras','Links'],
+      datasets: [{
+        data: [m.length, c.length, lc.length],
+        backgroundColor: ['rgba(248,81,73,.85)','rgba(227,179,65,.85)','rgba(56,139,253,.85)'],
+        borderColor: '#161B22', borderWidth: 3,
+      }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:true,
+      cutout:'65%',
+      plugins:{ legend:{ position:'bottom', labels:{ color:'#8B949E', boxWidth:14, padding:18 } } }
+    }
+  });
+
+  // Gráfico 3 — Linha: abertura por dia últimos 14 dias
+  destroyChart('linha');
+  const dias = [];
+  const hoje = new Date();
+  for(let i=13; i>=0; i--) {
+    const d = new Date(hoje); d.setDate(d.getDate()-i);
+    const dd = String(d.getDate()).padStart(2,'0');
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const yy = d.getFullYear();
+    dias.push({ label:`${dd}/${mm}`, key:`${dd}/${mm}/${yy}` });
+  }
+  function countByDay(arr) {
+    return dias.map(({key}) => arr.filter(x => x.data_abertura && x.data_abertura.startsWith(key)).length);
+  }
+  _charts.linha = new Chart(document.getElementById('chart-linha'), {
+    type: 'line',
+    data: {
+      labels: dias.map(d=>d.label),
+      datasets: [
+        {label:'Manutenção', data:countByDay(m),  borderColor:'#F85149', backgroundColor:'rgba(248,81,73,.12)', tension:.35, fill:true, pointRadius:4, pointHoverRadius:6},
+        {label:'Compras',    data:countByDay(c),  borderColor:'#E3B341', backgroundColor:'rgba(227,179,65,.10)', tension:.35, fill:true, pointRadius:4, pointHoverRadius:6},
+        {label:'Links',      data:countByDay(lc), borderColor:'#388BFD', backgroundColor:'rgba(56,139,253,.10)', tension:.35, fill:true, pointRadius:4, pointHoverRadius:6},
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:true,
+      plugins:{ legend:{ labels:{ color:'#8B949E', boxWidth:12, padding:16 } } },
+      scales:{
+        x:{ ticks:{color:'#8B949E'}, grid:{color:'#21262D'} },
+        y:{ ticks:{color:'#8B949E', stepSize:1}, grid:{color:'#21262D'}, beginAtZero:true }
+      }
+    }
+  });
 }
 
 function renderAll() {
