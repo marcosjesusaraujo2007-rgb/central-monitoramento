@@ -70,9 +70,23 @@ db.exec(`
     perfil TEXT DEFAULT 'usuario'
   );
 
+
   INSERT OR IGNORE INTO contadores (modulo, ultimo) VALUES ('compras', 0);
   INSERT OR IGNORE INTO contadores (modulo, ultimo) VALUES ('manutencao', 0);
   INSERT OR IGNORE INTO contadores (modulo, ultimo) VALUES ('links_chamados', 0);
 `);
+
+// Migração: se tabela usuarios ainda tem coluna 'usuario', recria com 'email'
+const colunas = db.prepare("PRAGMA table_info(usuarios)").all().map(c => c.name);
+if (colunas.includes('usuario')) {
+  db.exec('DROP TABLE usuarios');
+  db.exec(`CREATE TABLE usuarios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    senha TEXT NOT NULL,
+    perfil TEXT DEFAULT 'usuario'
+  )`);
+}
 
 module.exports = db;
