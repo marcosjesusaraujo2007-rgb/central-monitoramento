@@ -304,21 +304,8 @@
 
     <!-- ==================== LINKS ==================== -->
     <div class="page" id="page-links">
-      <div class="cards-row" id="links-metrics"></div>
       <div class="section-header">
-        <div class="section-title"><i class="ti ti-wifi" style="font-size:18px"></i> Monitoramento de Links</div>
-        <button class="btn" onclick="simularPing()"><i class="ti ti-refresh"></i> Atualizar Ping</button>
-      </div>
-      <div class="link-grid" id="link-grid"></div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Link</th><th>Tipo</th><th>IP</th><th>Latência</th><th>Uptime</th><th>Última verificação</th><th>Status</th><th>Ações</th></tr></thead>
-          <tbody id="tbody-links"></tbody>
-        </table>
-      </div>
-
-      <div class="section-header" style="margin-top:8px;">
-        <div class="section-title"><i class="ti ti-ticket" style="font-size:18px"></i> Chamados de Link</div>
+        <div class="section-title"><i class="ti ti-wifi" style="font-size:18px"></i> Chamados de Link de Internet</div>
         <button class="btn btn-primary" onclick="document.getElementById('novo-modulo').value='links';openNovoChamado()"><i class="ti ti-plus"></i> Novo Chamado</button>
       </div>
       <div class="table-wrap">
@@ -654,59 +641,6 @@ function renderManut() {
 // ============================================================
 // LINKS
 // ============================================================
-function statusColor(s) { return {online:'#3FB950',offline:'#F85149',degraded:'#E3B341'}[s]||'#8B949E'; }
-function renderLinksMetrics() {
-  const d = linksData;
-  document.getElementById('links-metrics').innerHTML = [
-    {label:'Total links',val:d.length,cls:'blue'},
-    {label:'Online',val:d.filter(x=>x.status==='online').length,cls:'green'},
-    {label:'Degradados',val:d.filter(x=>x.status==='degraded').length,cls:'yellow'},
-    {label:'Offline',val:d.filter(x=>x.status==='offline').length,cls:'red'},
-    {label:'Uptime médio',val:Math.round(d.reduce((a,c)=>a+c.uptime,0)/d.length*100)/100+'%',cls:''},
-  ].map(c=>`<div class="stat-card"><div class="stat-label">${c.label}</div><div class="stat-val ${c.cls}">${c.val}</div></div>`).join('');
-}
-function renderLinkCards() {
-  document.getElementById('link-grid').innerHTML = linksData.map(l=>{
-    const chamadosAbertos = linksChamados.filter(c=>c.linkId===l.id && c.status!=='Resolvido');
-    const badgeChamado = chamadosAbertos.length > 0
-      ? `<span style="background:var(--red-bg);color:var(--red-text);font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;margin-left:6px;">${chamadosAbertos.length} chamado${chamadosAbertos.length>1?'s':''}</span>`
-      : '';
-    return `
-    <div class="link-card ${l.status}">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
-          <div class="link-name">${l.nome}</div>${badgeChamado}
-        </div>
-        ${pillLink(l.status)}
-      </div>
-      <div class="link-url">${l.ip} · ${l.tipo}</div>
-      <div class="uptime-bar">${l.historico.map(h=>`<div class="uptime-seg" style="background:${h?'#3FB950':'#F85149'}"></div>`).join('')}</div>
-      <div class="link-stats">
-        <div class="link-stat"><div class="link-stat-val" style="color:${l.latencia?'#388BFD':'#F85149'}">${l.latencia!=null?l.latencia+'ms':'—'}</div><div class="link-stat-label">Latência</div></div>
-        <div class="link-stat"><div class="link-stat-val" style="color:${l.uptime>=99?'#3FB950':l.uptime>=95?'#E3B341':'#F85149'}">${l.uptime}%</div><div class="link-stat-label">Uptime</div></div>
-        <div class="link-stat"><div class="link-stat-val" style="color:#8B949E">${l.velocidade}</div><div class="link-stat-label">Velocidade</div></div>
-      </div>
-    </div>`;
-  }).join('');
-}
-function renderLinksTable() {
-  document.getElementById('tbody-links').innerHTML = linksData.map(l=>`
-    <tr>
-      <td style="color:#E6EDF3;font-weight:500;">${l.nome}</td>
-      <td><span class="tag">${l.tipo}</span></td>
-      <td class="mono" style="font-size:12px;">${l.ip}</td>
-      <td class="mono" style="color:${l.latencia?'#388BFD':'#F85149'}">${l.latencia!=null?l.latencia+' ms':'Sem resposta'}</td>
-      <td>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <div class="prog-bar"><div class="prog-fill" style="width:${l.uptime}%;background:${l.uptime>=99?'#3FB950':l.uptime>=95?'#E3B341':'#F85149'}"></div></div>
-          <span class="mono" style="font-size:12px;">${l.uptime}%</span>
-        </div>
-      </td>
-      <td style="font-size:12px;color:#8B949E;">${l.ultima}</td>
-      <td>${pillLink(l.status)}</td>
-      <td><button class="action-btn" onclick='verDetalhe("link",${JSON.stringify(l)})'><i class="ti ti-eye"></i></button></td>
-    </tr>`).join('');
-}
 function renderLinksChamados() {
   const tbody = document.getElementById('tbody-links-chamados');
   if(!tbody) return;
@@ -737,14 +671,6 @@ async function resolverLinkChamado(id) {
   await carregarDados();
 }
 
-function simularPing() {
-  linksData.forEach(l => {
-    if(l.status==='online') l.latencia = Math.max(2, l.latencia + Math.floor(Math.random()*10-5));
-    else if(l.status==='degraded') l.latencia = Math.max(50, l.latencia + Math.floor(Math.random()*20-10));
-    l.ultima = '18/06 ' + new Date().toTimeString().slice(0,5);
-  });
-  renderLinkCards(); renderLinksTable(); renderLinksMetrics();
-}
 
 // ============================================================
 // DASHBOARD UNIFICADO
@@ -1149,7 +1075,7 @@ function changePage(mod, dir) {
 function renderAll() {
   renderComprasMetrics(); renderCompras();
   renderManutMetrics(); renderManut();
-  renderLinksMetrics(); renderLinkCards(); renderLinksTable(); renderLinksChamados();
+  renderLinksChamados();
   renderDashboard();
 }
 
@@ -1157,7 +1083,7 @@ function tick() {
   document.getElementById('clock').textContent = new Date().toLocaleTimeString('pt-BR');
 }
 tick(); setInterval(tick, 1000);
-setInterval(()=>{ simularPing(); renderDashboard(); }, 30000);
+setInterval(()=>{ renderDashboard(); }, 30000);
 
 // ============================================================
 // USUÁRIOS
