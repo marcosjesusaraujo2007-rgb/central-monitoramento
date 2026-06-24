@@ -11,11 +11,17 @@ if (total === 0) {
   require('./seed');
 }
 
-// Cria usuário admin padrão se não existir
-const adminExiste = db.prepare("SELECT id FROM usuarios WHERE email = 'admin@sistema.com'").get();
-if (!adminExiste) {
-  const hash = bcrypt.hashSync('admin123', 10);
-  db.prepare("INSERT INTO usuarios (nome, email, senha, perfil) VALUES ('Administrador', 'admin@sistema.com', ?, 'admin')").run(hash);
+// Cria usuários padrão se não existirem
+const usuariosPadrao = [
+  { nome: 'Administrador', email: 'admin@sistema.com', senha: 'admin123', perfil: 'admin' },
+  { nome: 'Marcos Araújo', email: 'marcos.araujo@colegioser.com', senha: 'Marcos@2007', perfil: 'admin' },
+];
+for (const u of usuariosPadrao) {
+  const existe = db.prepare('SELECT id FROM usuarios WHERE email = ?').get(u.email);
+  if (!existe) {
+    const hash = bcrypt.hashSync(u.senha, 10);
+    db.prepare("INSERT INTO usuarios (nome, email, senha, perfil) VALUES (?, ?, ?, ?)").run(u.nome, u.email, hash, u.perfil);
+  }
 }
 
 const app = express();
