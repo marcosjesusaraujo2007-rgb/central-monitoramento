@@ -337,7 +337,7 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Nome</th><th>Usuário</th><th>Perfil</th><th>Ações</th></tr></thead>
+          <thead><tr><th>Nome</th><th>Email</th><th>Perfil</th><th>Ações</th></tr></thead>
           <tbody id="tbody-usuarios"></tbody>
         </table>
       </div>
@@ -360,8 +360,8 @@
         <input class="form-input" id="u-nome" placeholder="Ex: João Silva">
       </div>
       <div class="form-row">
-        <label class="form-label">Usuário (login)</label>
-        <input class="form-input" id="u-usuario" placeholder="Ex: joao.silva">
+        <label class="form-label">Email</label>
+        <input class="form-input" type="email" id="u-email" placeholder="Ex: joao@empresa.com">
       </div>
       <div class="form-row" id="u-senha-row">
         <label class="form-label">Senha</label>
@@ -1169,7 +1169,7 @@ async function renderUsuarios() {
   document.getElementById('tbody-usuarios').innerHTML = usuarios.map(u => `
     <tr>
       <td style="font-weight:500">${u.nome}</td>
-      <td class="mono" style="color:#388BFD">${u.usuario}</td>
+      <td style="color:#388BFD">${u.email}</td>
       <td><span class="pill ${u.perfil==='admin'?'pill-blue':'pill-gray'}">${u.perfil==='admin'?'Admin':'Usuário'}</span></td>
       <td style="display:flex;gap:6px;">
         <button class="action-btn" onclick='editarUsuario(${JSON.stringify(u)})'><i class="ti ti-pencil"></i></button>
@@ -1181,7 +1181,7 @@ async function renderUsuarios() {
 function openNovoUsuario() {
   document.getElementById('u-id').value = '';
   document.getElementById('u-nome').value = '';
-  document.getElementById('u-usuario').value = '';
+  document.getElementById('u-email').value = '';
   document.getElementById('u-senha').value = '';
   document.getElementById('u-perfil').value = 'usuario';
   document.getElementById('u-senha-row').style.display = '';
@@ -1192,7 +1192,7 @@ function openNovoUsuario() {
 function editarUsuario(u) {
   document.getElementById('u-id').value = u.id;
   document.getElementById('u-nome').value = u.nome;
-  document.getElementById('u-usuario').value = u.usuario;
+  document.getElementById('u-email').value = u.email;
   document.getElementById('u-senha').value = '';
   document.getElementById('u-perfil').value = u.perfil;
   document.getElementById('u-senha-row').style.display = '';
@@ -1203,13 +1203,13 @@ function editarUsuario(u) {
 async function salvarUsuario() {
   const id = document.getElementById('u-id').value;
   const nome = document.getElementById('u-nome').value.trim();
-  const usuario = document.getElementById('u-usuario').value.trim();
+  const email = document.getElementById('u-email').value.trim();
   const senha = document.getElementById('u-senha').value;
   const perfil = document.getElementById('u-perfil').value;
-  if (!nome || !usuario) return alert('Preencha nome e usuário.');
+  if (!nome || !email) return alert('Preencha nome e email.');
   if (!id && !senha) return alert('Informe uma senha.');
 
-  const body = { nome, usuario, perfil };
+  const body = { nome, email, perfil };
   if (senha) body.senha = senha;
 
   const res = await fetch(id ? `/api/usuarios/${id}` : '/api/usuarios', {

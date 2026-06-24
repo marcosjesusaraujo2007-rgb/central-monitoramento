@@ -65,9 +65,9 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS usuarios (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nome TEXT NOT NULL,
-    usuario TEXT UNIQUE NOT NULL,
+    email TEXT UNIQUE NOT NULL,
     senha TEXT NOT NULL,
-    perfil TEXT DEFAULT 'admin'
+    perfil TEXT DEFAULT 'usuario'
   );
 
   INSERT OR IGNORE INTO contadores (modulo, ultimo) VALUES ('compras', 0);

@@ -12,10 +12,10 @@ if (total === 0) {
 }
 
 // Cria usuário admin padrão se não existir
-const adminExiste = db.prepare("SELECT id FROM usuarios WHERE usuario = 'admin'").get();
+const adminExiste = db.prepare("SELECT id FROM usuarios WHERE email = 'admin@sistema.com'").get();
 if (!adminExiste) {
   const hash = bcrypt.hashSync('admin123', 10);
-  db.prepare("INSERT INTO usuarios (nome, usuario, senha, perfil) VALUES ('Administrador', 'admin', ?, 'admin')").run(hash);
+  db.prepare("INSERT INTO usuarios (nome, email, senha, perfil) VALUES ('Administrador', 'admin@sistema.com', ?, 'admin')").run(hash);
 }
 
 const app = express();
@@ -49,12 +49,12 @@ app.get('/', (req, res) => {
 });
 
 app.post('/api/login', (req, res) => {
-  const { usuario, senha } = req.body;
-  const user = db.prepare('SELECT * FROM usuarios WHERE usuario = ?').get(usuario);
+  const { email, senha } = req.body;
+  const user = db.prepare('SELECT * FROM usuarios WHERE email = ?').get(email);
   if (!user || !bcrypt.compareSync(senha, user.senha)) {
-    return res.status(401).json({ erro: 'Usuário ou senha incorretos' });
+    return res.status(401).json({ erro: 'Email ou senha incorretos' });
   }
-  req.session.usuario = { id: user.id, nome: user.nome, usuario: user.usuario, perfil: user.perfil };
+  req.session.usuario = { id: user.id, nome: user.nome, email: user.email, perfil: user.perfil };
   res.json({ ok: true, nome: user.nome });
 });
 
@@ -193,28 +193,28 @@ app.put('/api/links-chamados/:id', autenticado, (req, res) => {
 // ============================================================
 app.get('/api/usuarios', autenticado, (req, res) => {
   if (req.session.usuario.perfil !== 'admin') return res.status(403).json({ erro: 'Sem permissão' });
-  res.json(db.prepare('SELECT id, nome, usuario, perfil FROM usuarios').all());
+  res.json(db.prepare('SELECT id, nome, email, perfil FROM usuarios').all());
 });
 
 app.post('/api/usuarios', autenticado, (req, res) => {
   if (req.session.usuario.perfil !== 'admin') return res.status(403).json({ erro: 'Sem permissão' });
-  const { nome, usuario, senha, perfil } = req.body;
-  if (!nome || !usuario || !senha) return res.status(400).json({ erro: 'Campos obrigatórios' });
-  const existe = db.prepare('SELECT id FROM usuarios WHERE usuario = ?').get(usuario);
-  if (existe) return res.status(400).json({ erro: 'Usuário já existe' });
+  const { nome, email, senha, perfil } = req.body;
+  if (!nome || !email || !senha) return res.status(400).json({ erro: 'Campos obrigatórios' });
+  const existe = db.prepare('SELECT id FROM usuarios WHERE email = ?').get(email);
+  if (existe) return res.status(400).json({ erro: 'Email já cadastrado' });
   const hash = bcrypt.hashSync(senha, 10);
-  db.prepare('INSERT INTO usuarios (nome, usuario, senha, perfil) VALUES (?, ?, ?, ?)').run(nome, usuario, hash, perfil || 'usuario');
+  db.prepare('INSERT INTO usuarios (nome, email, senha, perfil) VALUES (?, ?, ?, ?)').run(nome, email, hash, perfil || 'usuario');
   res.json({ ok: true });
 });
 
 app.put('/api/usuarios/:id', autenticado, (req, res) => {
   if (req.session.usuario.perfil !== 'admin') return res.status(403).json({ erro: 'Sem permissão' });
-  const { nome, usuario, senha, perfil } = req.body;
+  const { nome, email, senha, perfil } = req.body;
   if (senha) {
     const hash = bcrypt.hashSync(senha, 10);
-    db.prepare('UPDATE usuarios SET nome=?, usuario=?, senha=?, perfil=? WHERE id=?').run(nome, usuario, hash, perfil, req.params.id);
+    db.prepare('UPDATE usuarios SET nome=?, email=?, senha=?, perfil=? WHERE id=?').run(nome, email, hash, perfil, req.params.id);
   } else {
-    db.prepare('UPDATE usuarios SET nome=?, usuario=?, perfil=? WHERE id=?').run(nome, usuario, perfil, req.params.id);
+    db.prepare('UPDATE usuarios SET nome=?, email=?, perfil=? WHERE id=?').run(nome, email, perfil, req.params.id);
   }
   res.json({ ok: true });
 });

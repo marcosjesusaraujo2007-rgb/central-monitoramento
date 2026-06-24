@@ -106,8 +106,8 @@
   </div>
 
   <div class="field">
-    <label>Usuário</label>
-    <input type="text" id="usuario" placeholder="Digite seu usuário" autocomplete="username">
+    <label>Email</label>
+    <input type="email" id="email" placeholder="Digite seu email" autocomplete="email">
   </div>
   <div class="field">
     <label>Senha</label>
@@ -124,13 +124,13 @@
   });
 
   async function login() {
-    const usuario = document.getElementById('usuario').value.trim();
+    const email = document.getElementById('email').value.trim();
     const senha = document.getElementById('senha').value;
     const btn = document.getElementById('btnLogin');
     const erro = document.getElementById('erro');
 
-    if (!usuario || !senha) {
-      mostrarErro('Preencha usuário e senha.');
+    if (!email || !senha) {
+      mostrarErro('Preencha email e senha.');
       return;
     }
 
@@ -142,7 +142,7 @@
       const res = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usuario, senha })
+        body: JSON.stringify({ email, senha })
       });
       const data = await res.json();
       if (res.ok) {
