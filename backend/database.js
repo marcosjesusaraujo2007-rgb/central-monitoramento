@@ -1,5 +1,10 @@
 const Database = require('better-sqlite3');
-const db = new Database('central.db');
+const path = require('path');
+const fs = require('fs');
+
+const dataDir = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, '..');
+if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+const db = new Database(path.join(dataDir, 'central.db'));
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS contadores (
