@@ -3,7 +3,11 @@ const cors = require('cors');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const path = require('path');
+const multer = require('multer');
+const XLSX = require('xlsx');
 const db = require('./database');
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 // Popula banco automaticamente se estiver vazio
 const total = db.prepare('SELECT COUNT(*) as n FROM compras').get().n;
@@ -100,6 +104,103 @@ function agora() {
 }
 
 const STATUS_CONCLUSAO = ['Concluído', 'Resolvido', 'Entregue', 'Cancelado'];
+
+// ============================================================
+// TEMPLATES E IMPORTAÇÃO
+// ============================================================
+
+// Template Compras
+app.get('/api/compras/template', autenticado, (req, res) => {
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['Descrição', 'Solicitante', 'Departamento', 'Valor (R$)', 'Prazo', 'Prioridade', 'Observações'],
+    ['Exemplo: Compra de notebooks', 'João Silva', 'TI', '5000', '30/07/2025', 'Alta', 'Urgente'],
+  ]);
+  ws['!cols'] = [30,20,15,12,12,10,30].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb, ws, 'Compras');
+  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  res.setHeader('Content-Disposition', 'attachment; filename="template_compras.xlsx"');
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.send(buf);
+});
+
+// Importar Compras
+app.post('/api/compras/importar', autenticado, upload.single('arquivo'), (req, res) => {
+  if (!req.file) return res.status(400).json({ erro: 'Nenhum arquivo enviado' });
+  try {
+    const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    let importados = 0, erros = [];
+    for (const r of rows) {
+      const desc = r['Descrição'] || r['Descricao'] || r['desc'] || '';
+      if (!desc) { erros.push('Linha sem descrição ignorada'); continue; }
+      try {
+        const { id, numero } = proximoId('compras', 'PC');
+        db.prepare(`INSERT INTO compras (id,numero,desc,solicitante,depto,valor,status,prazo,prioridade,obs,data_abertura,data_conclusao)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,null)`)
+          .run(id, numero, desc,
+            r['Solicitante']||'—', r['Departamento']||'—',
+            parseFloat(String(r['Valor (R$)']).replace(',','.'))||0,
+            'Pendente',
+            r['Prazo']||'—',
+            r['Prioridade']||'Média',
+            r['Observações']||r['Observacoes']||'',
+            agora());
+        importados++;
+      } catch(e) { erros.push(`Erro na linha "${desc}": ${e.message}`); }
+    }
+    res.json({ ok: true, importados, erros });
+  } catch(e) {
+    res.status(400).json({ erro: 'Arquivo inválido: ' + e.message });
+  }
+});
+
+// Template Manutenção
+app.get('/api/manutencao/template', autenticado, (req, res) => {
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['Descrição', 'Local', 'Tipo', 'Responsável', 'SLA', 'Prioridade'],
+    ['Exemplo: Troca de lâmpadas', 'Bloco A', 'Elétrica', 'João S.', '4h', 'Média'],
+  ]);
+  ws['!cols'] = [30,15,15,15,8,10].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb, ws, 'Manutenção');
+  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  res.setHeader('Content-Disposition', 'attachment; filename="template_manutencao.xlsx"');
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.send(buf);
+});
+
+// Importar Manutenção
+app.post('/api/manutencao/importar', autenticado, upload.single('arquivo'), (req, res) => {
+  if (!req.file) return res.status(400).json({ erro: 'Nenhum arquivo enviado' });
+  try {
+    const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    let importados = 0, erros = [];
+    for (const r of rows) {
+      const desc = r['Descrição'] || r['Descricao'] || r['desc'] || '';
+      if (!desc) { erros.push('Linha sem descrição ignorada'); continue; }
+      try {
+        const { id, numero } = proximoId('manutencao', 'MNT');
+        db.prepare(`INSERT INTO manutencao (id,numero,desc,local,tipo,resp,status,sla,prioridade,data_abertura,data_conclusao)
+          VALUES (?,?,?,?,?,?,?,?,?,?,null)`)
+          .run(id, numero, desc,
+            r['Local']||'—', r['Tipo']||'Geral',
+            r['Responsável']||r['Responsavel']||'—',
+            'Aberto',
+            r['SLA']||'—',
+            r['Prioridade']||'Média',
+            agora());
+        importados++;
+      } catch(e) { erros.push(`Erro na linha "${desc}": ${e.message}`); }
+    }
+    res.json({ ok: true, importados, erros });
+  } catch(e) {
+    res.status(400).json({ erro: 'Arquivo inválido: ' + e.message });
+  }
+});
 
 // ============================================================
 // COMPRAS

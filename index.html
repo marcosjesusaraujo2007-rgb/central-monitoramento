@@ -60,6 +60,14 @@
   .page { display: none; }
   .page.active { display: block; }
 
+  /* IMPORTAÇÃO */
+  .drop-zone { border: 2px dashed var(--border2); border-radius: var(--radius-lg); padding: 40px 20px; text-align: center; cursor: pointer; transition: all .2s; color: var(--text3); }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: var(--blue-light); background: var(--blue-bg); color: var(--blue-light); }
+  .drop-zone i { font-size: 36px; margin-bottom: 10px; display: block; }
+  .import-result { margin-top: 16px; font-size: 13px; }
+  .import-ok { color: var(--green-text); }
+  .import-erro { color: var(--red-text); margin-top: 6px; }
+
   /* GRÁFICOS */
   .charts-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px; }
   .kpi-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; display: flex; align-items: center; gap: 16px; }
@@ -288,6 +296,10 @@
       <div class="cards-row" id="compras-metrics"></div>
       <div class="section-header">
         <div class="section-title"><i class="ti ti-shopping-cart" style="font-size:18px"></i> Pedidos de Compra</div>
+        <div style="display:flex;gap:8px;">
+          <a href="/api/compras/template" class="btn"><i class="ti ti-download"></i> Baixar Modelo</a>
+          <button class="btn btn-primary" onclick="abrirImportar('compras')"><i class="ti ti-upload"></i> Importar</button>
+        </div>
       </div>
       <div class="filters-row">
         <div class="search-box"><i class="ti ti-search"></i><input type="text" id="busca-compras" placeholder="Buscar pedido…" oninput="renderCompras()"></div>
@@ -320,6 +332,10 @@
       <div class="cards-row" id="manut-metrics"></div>
       <div class="section-header">
         <div class="section-title"><i class="ti ti-tool" style="font-size:18px"></i> Chamados de Manutenção</div>
+        <div style="display:flex;gap:8px;">
+          <a href="/api/manutencao/template" class="btn"><i class="ti ti-download"></i> Baixar Modelo</a>
+          <button class="btn btn-primary" onclick="abrirImportar('manutencao')"><i class="ti ti-upload"></i> Importar</button>
+        </div>
       </div>
       <div class="filters-row">
         <div class="search-box"><i class="ti ti-search"></i><input type="text" id="busca-manut" placeholder="Buscar chamado…" oninput="renderManut()"></div>
@@ -376,6 +392,33 @@
 
   </div><!-- /content -->
 </div><!-- /main -->
+
+<!-- MODAL IMPORTAR -->
+<div class="modal-overlay" id="modal-importar" onclick="if(event.target===this)closeModal('importar')">
+  <div class="modal-box" style="max-width:480px;">
+    <div class="modal-head">
+      <div style="font-size:16px;font-weight:600;color:#DDE6F0;" id="modal-importar-titulo">Importar Planilha</div>
+      <button class="modal-close" onclick="closeModal('importar')">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--text3);margin-bottom:16px;">
+        Faça o download do modelo, preencha e envie aqui. Apenas arquivos <strong style="color:var(--text2)">.xlsx</strong> são aceitos.
+      </p>
+      <div class="drop-zone" id="drop-zone" onclick="document.getElementById('input-arquivo').click()">
+        <i class="ti ti-file-spreadsheet"></i>
+        <div style="font-size:14px;font-weight:600;margin-bottom:4px;">Clique ou arraste o arquivo aqui</div>
+        <div style="font-size:12px;">Somente .xlsx — máximo 5MB</div>
+      </div>
+      <input type="file" id="input-arquivo" accept=".xlsx" style="display:none" onchange="previewImportar(this)">
+      <div id="importar-arquivo-nome" style="margin-top:10px;font-size:12px;color:var(--blue-light);display:none;"></div>
+      <div class="import-result" id="import-result" style="display:none;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('importar')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-importar-ok" onclick="confirmarImportar()" disabled><i class="ti ti-upload"></i> Importar</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL NOVO USUÁRIO -->
 <div class="modal-overlay" id="modal-usuario" onclick="if(event.target===this)closeModal('usuario')">
@@ -1132,6 +1175,88 @@ async function salvarEdicao() {
   closeModal('editar');
   edicaoAtual = null;
   await carregarDados();
+}
+
+// ============================================================
+// IMPORTAR PLANILHA
+// ============================================================
+let _importarModulo = null;
+let _importarArquivo = null;
+
+function abrirImportar(modulo) {
+  _importarModulo = modulo;
+  _importarArquivo = null;
+  document.getElementById('modal-importar-titulo').textContent =
+    modulo === 'compras' ? 'Importar Pedidos de Compra' : 'Importar Chamados de Manutenção';
+  document.getElementById('importar-arquivo-nome').style.display = 'none';
+  document.getElementById('importar-arquivo-nome').textContent = '';
+  document.getElementById('import-result').style.display = 'none';
+  document.getElementById('import-result').innerHTML = '';
+  document.getElementById('btn-importar-ok').disabled = true;
+  document.getElementById('input-arquivo').value = '';
+  document.getElementById('modal-importar').classList.add('open');
+
+  // Drag and drop
+  const zone = document.getElementById('drop-zone');
+  zone.ondragover = e => { e.preventDefault(); zone.classList.add('drag-over'); };
+  zone.ondragleave = () => zone.classList.remove('drag-over');
+  zone.ondrop = e => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) setArquivoImportar(file);
+  };
+}
+
+function previewImportar(input) {
+  if (input.files[0]) setArquivoImportar(input.files[0]);
+}
+
+function setArquivoImportar(file) {
+  if (!file.name.endsWith('.xlsx')) {
+    alert('Apenas arquivos .xlsx são aceitos.');
+    return;
+  }
+  _importarArquivo = file;
+  const nomeEl = document.getElementById('importar-arquivo-nome');
+  nomeEl.textContent = '📎 ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+  nomeEl.style.display = 'block';
+  document.getElementById('btn-importar-ok').disabled = false;
+  document.getElementById('import-result').style.display = 'none';
+}
+
+async function confirmarImportar() {
+  if (!_importarArquivo || !_importarModulo) return;
+  const btn = document.getElementById('btn-importar-ok');
+  btn.disabled = true;
+  btn.textContent = 'Importando...';
+
+  const form = new FormData();
+  form.append('arquivo', _importarArquivo);
+
+  try {
+    const res = await fetch(`/api/${_importarModulo}/importar`, { method: 'POST', body: form });
+    const data = await res.json();
+    const resultEl = document.getElementById('import-result');
+    resultEl.style.display = 'block';
+
+    if (res.ok) {
+      let html = `<div class="import-ok"><i class="ti ti-circle-check"></i> <strong>${data.importados}</strong> registro(s) importado(s) com sucesso!</div>`;
+      if (data.erros && data.erros.length > 0) {
+        html += `<div class="import-erro"><i class="ti ti-alert-triangle"></i> ${data.erros.length} linha(s) com problema:<br>${data.erros.map(e=>`• ${e}`).join('<br>')}</div>`;
+      }
+      resultEl.innerHTML = html;
+      await carregarDados();
+    } else {
+      resultEl.innerHTML = `<div class="import-erro"><i class="ti ti-x"></i> ${data.erro}</div>`;
+    }
+  } catch {
+    document.getElementById('import-result').innerHTML = `<div class="import-erro">Erro de conexão.</div>`;
+    document.getElementById('import-result').style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-upload"></i> Importar';
+  }
 }
 
 // ============================================================
