@@ -128,29 +128,8 @@ app.get('/api/compras/template', autenticado, (req, res) => {
 app.post('/api/compras/importar', autenticado, upload.single('arquivo'), (req, res) => {
   if (!req.file) return res.status(400).json({ erro: 'Nenhum arquivo enviado' });
   try {
-    const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-    let importados = 0, erros = [];
-    for (const r of rows) {
-      const desc = r['Descrição'] || r['Descricao'] || r['desc'] || '';
-      if (!desc) { erros.push('Linha sem descrição ignorada'); continue; }
-      try {
-        const { id, numero } = proximoId('compras', 'PC');
-        db.prepare(`INSERT INTO compras (id,numero,desc,solicitante,depto,valor,status,prazo,prioridade,obs,data_abertura,data_conclusao)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,null)`)
-          .run(id, numero, desc,
-            r['Solicitante']||'—', r['Departamento']||'—',
-            parseFloat(String(r['Valor (R$)']).replace(',','.'))||0,
-            'Pendente',
-            r['Prazo']||'—',
-            r['Prioridade']||'Média',
-            r['Observações']||r['Observacoes']||'',
-            agora());
-        importados++;
-      } catch(e) { erros.push(`Erro na linha "${desc}": ${e.message}`); }
-    }
-    res.json({ ok: true, importados, erros });
+    const result = importarPlanilha(req.file.buffer, 'compras');
+    res.json(result);
   } catch(e) {
     res.status(400).json({ erro: 'Arquivo inválido: ' + e.message });
   }
@@ -175,32 +154,127 @@ app.get('/api/manutencao/template', autenticado, (req, res) => {
 app.post('/api/manutencao/importar', autenticado, upload.single('arquivo'), (req, res) => {
   if (!req.file) return res.status(400).json({ erro: 'Nenhum arquivo enviado' });
   try {
-    const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-    let importados = 0, erros = [];
-    for (const r of rows) {
-      const desc = r['Descrição'] || r['Descricao'] || r['desc'] || '';
-      if (!desc) { erros.push('Linha sem descrição ignorada'); continue; }
-      try {
-        const { id, numero } = proximoId('manutencao', 'MNT');
-        db.prepare(`INSERT INTO manutencao (id,numero,desc,local,tipo,resp,status,sla,prioridade,data_abertura,data_conclusao)
-          VALUES (?,?,?,?,?,?,?,?,?,?,null)`)
-          .run(id, numero, desc,
-            r['Local']||'—', r['Tipo']||'Geral',
-            r['Responsável']||r['Responsavel']||'—',
-            'Aberto',
-            r['SLA']||'—',
-            r['Prioridade']||'Média',
-            agora());
-        importados++;
-      } catch(e) { erros.push(`Erro na linha "${desc}": ${e.message}`); }
-    }
-    res.json({ ok: true, importados, erros });
+    const result = importarPlanilha(req.file.buffer, 'manutencao');
+    res.json(result);
   } catch(e) {
     res.status(400).json({ erro: 'Arquivo inválido: ' + e.message });
   }
 });
+
+function formatarData(val) {
+  if (!val) return null;
+  // Excel date serial number
+  if (typeof val === 'number') {
+    const d = new Date(Math.round((val - 25569) * 86400 * 1000));
+    const dd = String(d.getUTCDate()).padStart(2,'0');
+    const mm = String(d.getUTCMonth()+1).padStart(2,'0');
+    const yy = d.getUTCFullYear();
+    return `${dd}/${mm}/${yy} 00:00`;
+  }
+  if (val instanceof Date) {
+    const dd = String(val.getDate()).padStart(2,'0');
+    const mm = String(val.getMonth()+1).padStart(2,'0');
+    return `${dd}/${mm}/${val.getFullYear()} 00:00`;
+  }
+  // Already a string like "15/06/2026"
+  return String(val).trim() || null;
+}
+
+function mapStatus(val, modulo) {
+  const s = String(val||'').trim().toLowerCase();
+  if (modulo === 'compras') {
+    if (s === 'em aberto' || s === 'aberto' || s === 'pendente') return 'Pendente';
+    if (s === 'concluído' || s === 'concluido' || s === 'entregue') return 'Entregue';
+    if (s === 'em andamento' || s === 'em cotação' || s === 'cotação') return 'Em cotação';
+    if (s === 'cancelado') return 'Cancelado';
+    if (s === 'aprovado') return 'Aprovado';
+    return 'Pendente';
+  } else {
+    if (s === 'em aberto' || s === 'aberto') return 'Aberto';
+    if (s === 'concluído' || s === 'concluido') return 'Concluído';
+    if (s === 'em andamento') return 'Em andamento';
+    if (s === 'crítico' || s === 'critico') return 'Crítico';
+    if (s === 'cancelado') return 'Cancelado';
+    return 'Aberto';
+  }
+}
+
+function mapPrioridade(val) {
+  const p = String(val||'').trim().toLowerCase();
+  if (p === 'alta' || p === 'high') return 'Alta';
+  if (p === 'baixa' || p === 'low') return 'Baixa';
+  return 'Média';
+}
+
+function importarPlanilha(buffer, moduloFiltro) {
+  const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+
+  // Detecta a linha do cabeçalho procurando por "Descrição" ou "Solicitante"
+  const ref = XLSX.utils.decode_range(ws['!ref'] || 'A1:J100');
+  let headerRow = 0;
+  for (let r = ref.s.r; r <= Math.min(ref.s.r + 10, ref.e.r); r++) {
+    for (let c = ref.s.c; c <= ref.e.c; c++) {
+      const cell = ws[XLSX.utils.encode_cell({r, c})];
+      const v = cell ? String(cell.v||'').trim() : '';
+      if (v === 'Descrição' || v === 'Solicitante' || v === 'Descricao') {
+        headerRow = r;
+        break;
+      }
+    }
+    if (headerRow) break;
+  }
+
+  const rows = XLSX.utils.sheet_to_json(ws, { defval: '', range: headerRow });
+  let importados = 0, erros = [];
+
+  for (const r of rows) {
+    const desc = String(r['Descrição'] || r['Descricao'] || r['desc'] || '').trim();
+    const solicitante = String(r['Solicitante'] || '').trim();
+    const setor = String(r['Setor Responsável'] || r['Setor'] || r['Departamento'] || '').trim().toLowerCase();
+    const assunto = String(r['Assunto'] || '').trim();
+
+    // Pula linhas vazias ou de exemplo
+    if (!desc && !assunto) continue;
+    if (solicitante.toLowerCase() === 'exemplo') continue;
+
+    const descFinal = desc || assunto;
+    const prioridade = mapPrioridade(r['Prioridade']);
+    const dataAbertura = formatarData(r['Data Abertura']) || agora();
+    const dataConclusao = formatarData(r['Data Conclusão'] || r['Data Conclusao']) || null;
+
+    // Determina se é compras ou manutenção pelo setor
+    const isManut = setor.includes('manut') || setor.includes('elétric') || setor.includes('eletric') || setor.includes('hidraul') || setor.includes('civil');
+    const isCompras = setor.includes('compra') || setor.includes('ti') || setor.includes('financ') || setor.includes('admin');
+    const moduloDetectado = isManut ? 'manutencao' : 'compras';
+
+    if (moduloDetectado !== moduloFiltro && setor !== '') {
+      // Se o setor não bate com o módulo, tenta aceitar se for ambíguo
+      if (isManut && moduloFiltro === 'compras') { erros.push(`"${descFinal}" é Manutenção — importe pela página de Manutenção`); continue; }
+      if (isCompras && moduloFiltro === 'manutencao') { erros.push(`"${descFinal}" é Compras — importe pela página de Compras`); continue; }
+    }
+
+    try {
+      if (moduloFiltro === 'compras') {
+        const status = mapStatus(r['Status'], 'compras');
+        const { id, numero } = proximoId('compras', 'PC');
+        db.prepare(`INSERT INTO compras (id,numero,desc,solicitante,depto,valor,status,prazo,prioridade,obs,data_abertura,data_conclusao)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
+          .run(id, numero, descFinal, solicitante||'—', setor||'—', 0, status, '—', prioridade,
+            String(r['Observação']||r['Observacao']||r['Observações']||''), dataAbertura, dataConclusao);
+      } else {
+        const status = mapStatus(r['Status'], 'manutencao');
+        const { id, numero } = proximoId('manutencao', 'MNT');
+        db.prepare(`INSERT INTO manutencao (id,numero,desc,local,tipo,resp,status,sla,prioridade,data_abertura,data_conclusao)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
+          .run(id, numero, descFinal, setor||'—', assunto||'Geral', solicitante||'—',
+            status, '—', prioridade, dataAbertura, dataConclusao);
+      }
+      importados++;
+    } catch(e) { erros.push(`Erro em "${descFinal}": ${e.message}`); }
+  }
+  return { ok: true, importados, erros };
+}
 
 // ============================================================
 // COMPRAS
