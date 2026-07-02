@@ -660,7 +660,7 @@ let filtroCompras = 'todos';
 function setFiltroCompras(f,el) {
   filtroCompras = f; pages.compras = 1;
   document.querySelectorAll('#page-compras .filter-chip').forEach(b=>b.classList.remove('on'));
-  el.classList.add('on');
+  if(el) el.classList.add('on');
   renderCompras();
 }
 function renderCompras() {
@@ -710,7 +710,7 @@ let filtroManut = 'todos';
 function setFiltroManut(f,el) {
   filtroManut = f; pages.manut = 1;
   document.querySelectorAll('#page-manutencao .filter-chip').forEach(b=>b.classList.remove('on'));
-  el.classList.add('on');
+  if(el) el.classList.add('on');
   renderManut();
 }
 function renderManut() {
@@ -793,21 +793,29 @@ function renderDashboard() {
   const prefixoHoje = `${ddHoje}/${mmHoje}/${aaHoje}`;
   const chamadosHoje = [...m,...lc].filter(x=>x.data_abertura&&x.data_abertura.startsWith(prefixoHoje)).length;
 
-  // KPI cards com ícones
-  document.getElementById('dash-metrics').innerHTML = [
-    {icon:'ti-shopping-cart', cls:'yellow', val: pedidosAbertos, label:'Pedidos em aberto', sub: pedidosAbertos===1?'pedido aguardando':'pedidos aguardando'},
-    {icon:'ti-alert-triangle', cls: criticos>0?'red':'green', val: criticos, label:'Manutenções críticas', sub: criticos>0?'atenção imediata':'sem críticos'},
-    {icon:'ti-wifi-off', cls: offline>0?'red':'green', val: offline, label:'Links offline', sub: `${l.filter(x=>x.status==='online').length} online de ${l.length}`},
-    {icon:'ti-calendar-event', cls:'blue', val: chamadosHoje, label:'Chamados hoje', sub: 'abertos hoje'},
-    {icon:'ti-currency-dollar', cls:'purple', val:'R$'+valorAberto.toLocaleString('pt-BR',{minimumFractionDigits:0}), label:'Valor em aberto', sub:'pedidos pendentes'},
-  ].map(k=>`
-    <div class="kpi-card">
+  // KPI cards interativos
+  const _kpiDefs = [
+    {icon:'ti-shopping-cart', cls:'yellow', val: pedidosAbertos, label:'Pedidos em aberto', sub: pedidosAbertos===1?'pedido aguardando':'pedidos aguardando',
+      action: ()=>{ goPage('compras',document.getElementById('nav-compras')); setTimeout(()=>setFiltroCompras('Pendente',null),50); }},
+    {icon:'ti-alert-triangle', cls: criticos>0?'red':'green', val: criticos, label:'Manutenções críticas', sub: criticos>0?'atenção imediata':'sem críticos',
+      action: ()=>{ goPage('manutencao',document.getElementById('nav-manutencao')); setTimeout(()=>setFiltroManut('Crítico',null),50); }},
+    {icon:'ti-wifi-off', cls: offline>0?'red':'green', val: offline, label:'Links offline', sub: `${l.filter(x=>x.status==='online').length} online de ${l.length}`,
+      action: ()=>{ goPage('links',document.getElementById('nav-links')); }},
+    {icon:'ti-calendar-event', cls:'blue', val: chamadosHoje, label:'Chamados hoje', sub: 'abertos hoje',
+      action: ()=>{ goPage('manutencao',document.getElementById('nav-manutencao')); }},
+    {icon:'ti-currency-dollar', cls:'purple', val:'R$'+valorAberto.toLocaleString('pt-BR',{minimumFractionDigits:0}), label:'Valor em aberto', sub:'pedidos pendentes',
+      action: ()=>{ goPage('compras',document.getElementById('nav-compras')); setTimeout(()=>setFiltroCompras('Pendente',null),50); }},
+  ];
+  window._kpiActions = _kpiDefs.map(k=>k.action);
+  document.getElementById('dash-metrics').innerHTML = _kpiDefs.map((k,i)=>`
+    <div class="kpi-card" onclick="_kpiActions[${i}]()" style="cursor:pointer;" onmouseenter="this.style.borderColor='var(--blue-light)'" onmouseleave="this.style.borderColor='var(--border)'">
       <div class="kpi-icon ${k.cls}"><i class="ti ${k.icon}"></i></div>
       <div class="kpi-info">
         <div class="kpi-val">${k.val}</div>
         <div class="kpi-label">${k.label}</div>
         <div style="font-size:10px;color:var(--text3);margin-top:2px;">${k.sub}</div>
       </div>
+      <div style="margin-left:auto;color:var(--text3);font-size:16px;"><i class="ti ti-chevron-right"></i></div>
     </div>`).join('');
 
   // Alertas
