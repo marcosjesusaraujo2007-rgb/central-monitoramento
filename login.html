@@ -3,124 +3,351 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Login — Central de Monitoramento</title>
+<title>Login — Central de Monitoramento TI</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
   body {
     background: #080C14;
     color: #DDE6F0;
     font-family: 'Segoe UI', system-ui, sans-serif;
     min-height: 100vh;
     display: flex;
+    align-items: stretch;
+    overflow: hidden;
+  }
+
+  /* Painel esquerdo */
+  .panel-left {
+    flex: 1;
+    background: linear-gradient(145deg, #0D1B2E 0%, #0F2040 50%, #0A1628 100%);
+    display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    padding: 60px 40px;
+    position: relative;
+    overflow: hidden;
   }
-  .card {
-    background: #0F1629;
-    border: 1px solid #1E2D4A;
-    border-radius: 12px;
-    padding: 40px;
-    width: 100%;
-    max-width: 380px;
+
+  .panel-left::before {
+    content: '';
+    position: absolute;
+    width: 500px; height: 500px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(31,111,235,.15) 0%, transparent 70%);
+    top: -100px; left: -100px;
   }
-  .logo {
+  .panel-left::after {
+    content: '';
+    position: absolute;
+    width: 400px; height: 400px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(77,159,255,.1) 0%, transparent 70%);
+    bottom: -80px; right: -80px;
+  }
+
+  /* Grid decorativo */
+  .grid-lines {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(31,111,235,.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(31,111,235,.06) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  .left-content {
+    position: relative;
+    z-index: 1;
     text-align: center;
-    margin-bottom: 32px;
+    max-width: 400px;
   }
-  .logo-badge {
-    background: #1F6FEB;
-    color: #fff;
-    font-size: 11px;
+
+  /* Logo */
+  .logo-wrapper {
+    margin-bottom: 40px;
+  }
+
+  .logo-svg {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 20px;
+    display: block;
+    filter: drop-shadow(0 0 30px rgba(31,111,235,.4));
+  }
+
+  .logo-title {
+    font-size: 28px;
     font-weight: 700;
-    padding: 4px 12px;
-    border-radius: 6px;
-    letter-spacing: .08em;
-    display: inline-block;
-    margin-bottom: 10px;
-  }
-  .logo h1 {
-    font-size: 18px;
-    font-weight: 600;
     color: #DDE6F0;
+    letter-spacing: -.5px;
+    margin-bottom: 6px;
   }
-  .logo p {
+
+  .logo-title span {
+    color: #4D9FFF;
+  }
+
+  .logo-sub {
     font-size: 13px;
-    color: #7A9ABF;
-    margin-top: 4px;
+    color: #4A6A8A;
+    letter-spacing: .04em;
+    text-transform: uppercase;
   }
+
+  /* Stats decorativos */
+  .stats-row {
+    display: flex;
+    gap: 24px;
+    margin-top: 60px;
+    justify-content: center;
+  }
+
+  .stat-item {
+    text-align: center;
+  }
+
+  .stat-num {
+    font-size: 22px;
+    font-weight: 700;
+    color: #4D9FFF;
+  }
+
+  .stat-lbl {
+    font-size: 11px;
+    color: #4A6A8A;
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+
+  .stat-divider {
+    width: 1px;
+    background: #1E2D4A;
+    align-self: stretch;
+  }
+
+  /* Painel direito - formulário */
+  .panel-right {
+    width: 440px;
+    min-width: 440px;
+    background: #0A0F1C;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 48px;
+    border-left: 1px solid #1E2D4A;
+    position: relative;
+  }
+
+  .form-header {
+    width: 100%;
+    margin-bottom: 36px;
+  }
+
+  .form-header h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #DDE6F0;
+    margin-bottom: 6px;
+  }
+
+  .form-header p {
+    font-size: 13px;
+    color: #4A6A8A;
+  }
+
   .field {
-    margin-bottom: 16px;
+    width: 100%;
+    margin-bottom: 18px;
   }
+
   label {
     display: block;
-    font-size: 13px;
+    font-size: 12px;
     color: #7A9ABF;
-    margin-bottom: 6px;
-    font-weight: 500;
+    margin-bottom: 7px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
   }
+
+  .input-wrap {
+    position: relative;
+  }
+
+  .input-wrap i {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #4A6A8A;
+    font-size: 16px;
+    pointer-events: none;
+  }
+
   input {
     width: 100%;
-    background: #080C14;
+    background: #0F1629;
     border: 1px solid #1E2D4A;
-    border-radius: 8px;
+    border-radius: 10px;
     color: #DDE6F0;
     font-size: 14px;
-    padding: 10px 14px;
+    padding: 12px 14px 12px 42px;
     outline: none;
-    transition: border-color .15s;
+    transition: border-color .2s, box-shadow .2s;
   }
-  input:focus { border-color: #4D9FFF; }
+
+  input:focus {
+    border-color: #1F6FEB;
+    box-shadow: 0 0 0 3px rgba(31,111,235,.15);
+  }
+
   .btn {
     width: 100%;
-    background: #1F6FEB;
+    background: linear-gradient(135deg, #1F6FEB 0%, #1558C8 100%);
     color: #fff;
     border: none;
-    border-radius: 8px;
+    border-radius: 10px;
     font-size: 14px;
-    font-weight: 600;
-    padding: 11px;
+    font-weight: 700;
+    padding: 13px;
     cursor: pointer;
     margin-top: 8px;
-    transition: background .15s;
+    transition: all .2s;
+    letter-spacing: .03em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
   }
-  .btn:hover { background: #4D9FFF; }
-  .btn:disabled { background: #1E2D4A; cursor: not-allowed; }
+
+  .btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #3A85F5 0%, #1F6FEB 100%);
+    box-shadow: 0 4px 20px rgba(31,111,235,.4);
+    transform: translateY(-1px);
+  }
+
+  .btn:active { transform: translateY(0); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
+
   .erro {
-    background: #1E0808;
-    border: 1px solid #C93030;
+    background: rgba(200,40,40,.1);
+    border: 1px solid rgba(200,40,40,.3);
     color: #F26060;
     border-radius: 8px;
     padding: 10px 14px;
     font-size: 13px;
     margin-top: 16px;
     display: none;
+    width: 100%;
+    text-align: center;
+  }
+
+  .footer-text {
+    position: absolute;
+    bottom: 24px;
+    font-size: 11px;
+    color: #2A3F5F;
+  }
+
+  /* Responsivo */
+  @media (max-width: 700px) {
+    .panel-left { display: none; }
+    .panel-right { width: 100%; min-width: unset; border-left: none; }
   }
 </style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 </head>
 <body>
-<div class="card">
-  <div class="logo">
-    <div class="logo-badge">CENTRAL</div>
-    <h1>Monitor Operacional</h1>
-    <p>Sistema de Chamados TI</p>
+
+<!-- Painel esquerdo -->
+<div class="panel-left">
+  <div class="grid-lines"></div>
+  <div class="left-content">
+    <div class="logo-wrapper">
+      <!-- Logo SER TI em SVG -->
+      <svg class="logo-svg" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="60" cy="60" r="58" stroke="#1F6FEB" stroke-width="1.5" stroke-dasharray="4 3" opacity=".3"/>
+        <circle cx="60" cy="60" r="48" fill="#0D1B2E" stroke="#1E2D4A" stroke-width="1"/>
+        <circle cx="60" cy="60" r="38" fill="#0F2040" stroke="#1F6FEB" stroke-width="1.5" opacity=".5"/>
+        <!-- Monitor icon -->
+        <rect x="34" y="40" width="52" height="34" rx="4" fill="none" stroke="#4D9FFF" stroke-width="2"/>
+        <rect x="34" y="40" width="52" height="22" rx="4" fill="rgba(31,111,235,.15)"/>
+        <line x1="60" y1="74" x2="60" y2="82" stroke="#4D9FFF" stroke-width="2"/>
+        <line x1="50" y1="82" x2="70" y2="82" stroke="#4D9FFF" stroke-width="2" stroke-linecap="round"/>
+        <!-- Pontos de status -->
+        <circle cx="42" cy="51" r="2.5" fill="#56D364"/>
+        <circle cx="50" cy="51" r="2.5" fill="#E3B341"/>
+        <circle cx="58" cy="51" r="2.5" fill="#F85149"/>
+        <!-- Linha de gráfico -->
+        <polyline points="38,65 46,58 54,62 62,54 70,58 78,52" stroke="#4D9FFF" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+
+      <div class="logo-title">Colégio <span>SER</span></div>
+      <div class="logo-sub">Central de Monitoramento TI</div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-item">
+        <div class="stat-num">24/7</div>
+        <div class="stat-lbl">Monitoramento</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <div class="stat-num">TI</div>
+        <div class="stat-lbl">Suporte</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <div class="stat-num">SER</div>
+        <div class="stat-lbl">Educação</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Painel direito -->
+<div class="panel-right">
+  <div class="form-header">
+    <h2>Bem-vindo de volta</h2>
+    <p>Acesse com suas credenciais do sistema</p>
   </div>
 
   <div class="field">
     <label>Email</label>
-    <input type="email" id="email" placeholder="Digite seu email" autocomplete="email">
-  </div>
-  <div class="field">
-    <label>Senha</label>
-    <input type="password" id="senha" placeholder="Digite sua senha" autocomplete="current-password">
+    <div class="input-wrap">
+      <i class="ti ti-mail"></i>
+      <input type="email" id="email" placeholder="seu@email.com" autocomplete="email">
+    </div>
   </div>
 
-  <button class="btn" id="btnLogin" onclick="login()">Entrar</button>
+  <div class="field">
+    <label>Senha</label>
+    <div class="input-wrap">
+      <i class="ti ti-lock"></i>
+      <input type="password" id="senha" placeholder="••••••••" autocomplete="current-password">
+    </div>
+  </div>
+
+  <button class="btn" id="btnLogin" onclick="login()">
+    <i class="ti ti-login"></i>
+    Entrar
+  </button>
+
   <div class="erro" id="erro"></div>
+
+  <div class="footer-text">Central de Monitoramento TI · Colégio SER</div>
 </div>
 
 <script>
   document.getElementById('senha').addEventListener('keydown', e => {
     if (e.key === 'Enter') login();
+  });
+  document.getElementById('email').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('senha').focus();
   });
 
   async function login() {
@@ -135,7 +362,7 @@
     }
 
     btn.disabled = true;
-    btn.textContent = 'Entrando...';
+    btn.innerHTML = '<i class="ti ti-loader-2" style="animation:spin .8s linear infinite"></i> Entrando…';
     erro.style.display = 'none';
 
     try {
@@ -154,7 +381,7 @@
       mostrarErro('Erro de conexão com o servidor.');
     } finally {
       btn.disabled = false;
-      btn.textContent = 'Entrar';
+      btn.innerHTML = '<i class="ti ti-login"></i> Entrar';
     }
   }
 
@@ -164,5 +391,9 @@
     erro.style.display = 'block';
   }
 </script>
+
+<style>
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
 </body>
 </html>
