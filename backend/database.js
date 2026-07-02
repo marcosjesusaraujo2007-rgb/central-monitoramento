@@ -79,6 +79,15 @@ db.exec(`
   INSERT OR IGNORE INTO contadores (modulo, ultimo) VALUES ('compras', 0);
   INSERT OR IGNORE INTO contadores (modulo, ultimo) VALUES ('manutencao', 0);
   INSERT OR IGNORE INTO contadores (modulo, ultimo) VALUES ('links_chamados', 0);
+
+  CREATE TABLE IF NOT EXISTS comentarios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    modulo TEXT NOT NULL,
+    chamado_id TEXT NOT NULL,
+    usuario_nome TEXT NOT NULL,
+    texto TEXT NOT NULL,
+    data TEXT NOT NULL
+  );
 `);
 
 // Migração: se tabela usuarios ainda tem coluna 'usuario', recria com 'email'

@@ -384,6 +384,25 @@ app.put('/api/links-chamados/:id', autenticado, (req, res) => {
 });
 
 // ============================================================
+// COMENTÁRIOS
+// ============================================================
+app.get('/api/comentarios/:modulo/:id', autenticado, (req, res) => {
+  const rows = db.prepare(
+    'SELECT * FROM comentarios WHERE modulo=? AND chamado_id=? ORDER BY id ASC'
+  ).all(req.params.modulo, req.params.id);
+  res.json(rows);
+});
+
+app.post('/api/comentarios/:modulo/:id', autenticado, (req, res) => {
+  const { texto } = req.body;
+  if (!texto || !texto.trim()) return res.status(400).json({ erro: 'Texto obrigatório' });
+  db.prepare(
+    'INSERT INTO comentarios (modulo, chamado_id, usuario_nome, texto, data) VALUES (?,?,?,?,?)'
+  ).run(req.params.modulo, req.params.id, req.session.usuario.nome, texto.trim(), agora());
+  res.json({ ok: true });
+});
+
+// ============================================================
 // USUÁRIOS
 // ============================================================
 app.get('/api/usuarios', autenticado, (req, res) => {

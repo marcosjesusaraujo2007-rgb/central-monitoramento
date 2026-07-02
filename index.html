@@ -60,6 +60,21 @@
   .page { display: none; }
   .page.active { display: block; }
 
+  /* COMENTÁRIOS */
+  .comentarios-wrap { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 16px; }
+  .comentarios-titulo { font-size: 12px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 12px; display:flex; align-items:center; gap:6px; }
+  .comentario-item { display:flex; gap:10px; margin-bottom: 12px; }
+  .comentario-avatar { width:30px; height:30px; border-radius:50%; background:var(--blue-bg); color:var(--blue-light); font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .comentario-body { flex:1; background:var(--bg3); border-radius:var(--radius); padding:10px 12px; }
+  .comentario-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+  .comentario-nome { font-size:12px; font-weight:600; color:var(--text); }
+  .comentario-data { font-size:11px; color:var(--text3); }
+  .comentario-texto { font-size:13px; color:var(--text2); line-height:1.5; }
+  .comentario-input-wrap { display:flex; gap:8px; margin-top:12px; }
+  .comentario-input-wrap input { flex:1; background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius); color:var(--text); font-size:13px; padding:8px 12px; outline:none; transition:border-color .15s; }
+  .comentario-input-wrap input:focus { border-color:var(--blue-light); }
+  .comentario-vazio { text-align:center; color:var(--text3); font-size:12px; padding:12px 0; }
+
   /* IMPORTAÇÃO */
   .drop-zone { border: 2px dashed var(--border2); border-radius: var(--radius-lg); padding: 40px 20px; text-align: center; cursor: pointer; transition: all .2s; color: var(--text3); }
   .drop-zone:hover, .drop-zone.drag-over { border-color: var(--blue-light); background: var(--blue-bg); color: var(--blue-light); }
@@ -467,6 +482,7 @@
       <button class="modal-close" onclick="closeModal('detalhe')">×</button>
     </div>
     <div class="modal-body" id="m-body"></div>
+    <div id="m-comentarios"></div>
     <div class="modal-footer" id="m-footer"></div>
   </div>
 </div>
@@ -900,6 +916,7 @@ function verDetalhe(tipo, d) {
     document.getElementById('m-footer').innerHTML = `
       <button class="btn" onclick="closeModal('detalhe')">Fechar</button>
       ${isAdmin() ? `<button class="btn btn-primary" onclick='abrirEdicao("compras","${d.id}")'><i class="ti ti-edit"></i> Editar</button>` : ''}`;
+    carregarComentarios('compras', d.id);
   } else if(tipo==='manut') {
     document.getElementById('m-id').textContent = d.id;
     document.getElementById('m-titulo').textContent = d.desc;
@@ -923,6 +940,7 @@ function verDetalhe(tipo, d) {
     document.getElementById('m-footer').innerHTML = `
       <button class="btn" onclick="closeModal('detalhe')">Fechar</button>
       ${isAdmin() ? `<button class="btn btn-primary" onclick='abrirEdicao("manut","${d.id}")'><i class="ti ti-edit"></i> Editar</button>` : ''}`;
+    carregarComentarios('manutencao', d.id);
   } else if(tipo==='link') {
     document.getElementById('m-id').textContent = d.id;
     document.getElementById('m-titulo').textContent = d.nome;
@@ -962,6 +980,7 @@ function verDetalhe(tipo, d) {
     document.getElementById('m-footer').innerHTML = `
       <button class="btn" onclick="closeModal('detalhe')">Fechar</button>
       <button class="btn btn-primary" onclick="closeModal('detalhe');document.getElementById('novo-modulo').value='links';openNovoChamado()"><i class="ti ti-plus"></i> Abrir Chamado</button>`;
+    carregarComentarios('links', d.id);
   }
   document.getElementById('modal-detalhe').classList.add('open');
 }
@@ -1175,6 +1194,70 @@ async function salvarEdicao() {
   closeModal('editar');
   edicaoAtual = null;
   await carregarDados();
+}
+
+// ============================================================
+// COMENTÁRIOS
+// ============================================================
+let _comentarioModulo = null;
+let _comentarioChamadoId = null;
+
+async function carregarComentarios(modulo, chamadoId) {
+  _comentarioModulo = modulo;
+  _comentarioChamadoId = chamadoId;
+  const el = document.getElementById('m-comentarios');
+  if (!el) return;
+  el.innerHTML = `<div class="comentarios-wrap">
+    <div class="comentarios-titulo"><i class="ti ti-message-circle"></i> Comentários</div>
+    <div id="lista-comentarios"><div class="comentario-vazio">Carregando...</div></div>
+    <div class="comentario-input-wrap">
+      <input type="text" id="input-comentario" placeholder="Escreva um comentário..." onkeydown="if(event.key==='Enter')enviarComentario()">
+      <button class="btn btn-primary" onclick="enviarComentario()" style="white-space:nowrap;"><i class="ti ti-send"></i> Enviar</button>
+    </div>
+  </div>`;
+  await renderComentarios();
+}
+
+async function renderComentarios() {
+  if (!_comentarioModulo || !_comentarioChamadoId) return;
+  const res = await fetch(`/api/comentarios/${_comentarioModulo}/${_comentarioChamadoId}`);
+  const lista = await res.json();
+  const el = document.getElementById('lista-comentarios');
+  if (!el) return;
+  if (!lista.length) {
+    el.innerHTML = '<div class="comentario-vazio">Nenhum comentário ainda. Seja o primeiro!</div>';
+    return;
+  }
+  el.innerHTML = lista.map(c => {
+    const iniciais = c.usuario_nome.split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase();
+    return `<div class="comentario-item">
+      <div class="comentario-avatar">${iniciais}</div>
+      <div class="comentario-body">
+        <div class="comentario-header">
+          <span class="comentario-nome">${c.usuario_nome}</span>
+          <span class="comentario-data">${c.data}</span>
+        </div>
+        <div class="comentario-texto">${c.texto}</div>
+      </div>
+    </div>`;
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+async function enviarComentario() {
+  const input = document.getElementById('input-comentario');
+  const texto = input ? input.value.trim() : '';
+  if (!texto) return;
+  input.value = '';
+  input.disabled = true;
+  await fetch(`/api/comentarios/${_comentarioModulo}/${_comentarioChamadoId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ texto })
+  });
+  input.disabled = false;
+  input.focus();
+  await renderComentarios();
 }
 
 // ============================================================
