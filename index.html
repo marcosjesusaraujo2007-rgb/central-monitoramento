@@ -1605,67 +1605,77 @@ function renderGraficos() {
 
   // KPI cards
   document.getElementById('graficos-kpi').innerHTML = [
-    {icon:'ti-ticket',cls:'blue',val:total,label:'Total de Chamados'},
-    {icon:'ti-alert-circle',cls:'red',val:abertos,label:'Em Aberto'},
-    {icon:'ti-circle-check',cls:'green',val:resolvidos,label:'Resolvidos / Concluídos'},
-    {icon:'ti-trending-up',cls:'yellow',val:taxa+'%',label:'Taxa de Resolução'},
+    {icon:'ti-ticket',      cls:'blue',   val:total,        label:'Total de Chamados'},
+    {icon:'ti-alert-circle',cls:'red',    val:abertos,      label:'Em Aberto'},
+    {icon:'ti-circle-check',cls:'green',  val:resolvidos,   label:'Resolvidos / Concluídos'},
+    {icon:'ti-trending-up', cls:'purple', val:taxa+'%',     label:'Taxa de Resolução'},
   ].map(k=>`
     <div class="kpi-card">
       <div class="kpi-icon ${k.cls}"><i class="ti ${k.icon}"></i></div>
       <div class="kpi-info"><div class="kpi-val">${k.val}</div><div class="kpi-label">${k.label}</div></div>
     </div>`).join('');
 
-  // Paleta
-  const cfg = Chart.defaults;
-  cfg.color = '#8B949E';
-  cfg.borderColor = '#30363D';
-  cfg.font.family = "'Segoe UI', system-ui, sans-serif";
+  // Paleta moderna
+  const P = {
+    manut:  { solid:'#4D9FFF', bg:'rgba(77,159,255,.15)',  border:'rgba(77,159,255,.8)'  },
+    compras:{ solid:'#A78BFA', bg:'rgba(167,139,250,.15)', border:'rgba(167,139,250,.8)' },
+    links:  { solid:'#34D399', bg:'rgba(52,211,153,.15)',  border:'rgba(52,211,153,.8)'  },
+  };
+  const gridColor = 'rgba(255,255,255,.05)';
+  const tickColor = '#445E7A';
+  const legendColor = '#7A9ABF';
 
-  // Gráfico 1 — Barras: status por módulo
+  const cfg = Chart.defaults;
+  cfg.color = tickColor;
+  cfg.borderColor = gridColor;
+  cfg.font.family = "'Segoe UI', system-ui, sans-serif";
+  cfg.font.size = 12;
+
+  // Gráfico 1 — Barras agrupadas com cantos arredondados
   destroyChart('status');
   const statusLabels = ['Aberto / Pendente','Em andamento / Cotação','Concluído / Entregue','Crítico','Cancelado'];
-  const statusManut  = [
-    m.filter(x=>x.status==='Aberto').length,
-    m.filter(x=>x.status==='Em andamento').length,
-    m.filter(x=>x.status==='Concluído').length,
-    m.filter(x=>x.status==='Crítico').length,
-    m.filter(x=>x.status==='Cancelado').length,
-  ];
-  const statusCompras = [
-    c.filter(x=>x.status==='Pendente').length,
-    c.filter(x=>x.status==='Em cotação').length,
-    c.filter(x=>x.status==='Entregue').length,
-    0,
-    c.filter(x=>x.status==='Cancelado').length,
-  ];
-  const statusLinks = [
-    lc.filter(x=>x.status==='Aberto').length,
-    lc.filter(x=>x.status==='Em andamento').length,
-    lc.filter(x=>x.status==='Resolvido').length,
-    0,
-    lc.filter(x=>x.status==='Cancelado').length,
-  ];
   _charts.status = new Chart(document.getElementById('chart-status'), {
     type: 'bar',
     data: {
       labels: statusLabels,
       datasets: [
-        {label:'Manutenção', data: statusManut,  backgroundColor:'rgba(248,81,73,.8)',  borderRadius:4},
-        {label:'Compras',    data: statusCompras, backgroundColor:'rgba(227,179,65,.8)', borderRadius:4},
-        {label:'Links',      data: statusLinks,   backgroundColor:'rgba(56,139,253,.8)', borderRadius:4},
+        { label:'Manutenção', data:[
+            m.filter(x=>x.status==='Aberto').length,
+            m.filter(x=>x.status==='Em andamento').length,
+            m.filter(x=>x.status==='Concluído').length,
+            m.filter(x=>x.status==='Crítico').length,
+            m.filter(x=>x.status==='Cancelado').length,
+          ], backgroundColor: P.manut.bg, borderColor: P.manut.border, borderWidth:2, borderRadius:6, borderSkipped:false },
+        { label:'Compras', data:[
+            c.filter(x=>x.status==='Pendente').length,
+            c.filter(x=>x.status==='Em cotação').length,
+            c.filter(x=>x.status==='Entregue').length,
+            0,
+            c.filter(x=>x.status==='Cancelado').length,
+          ], backgroundColor: P.compras.bg, borderColor: P.compras.border, borderWidth:2, borderRadius:6, borderSkipped:false },
+        { label:'Links', data:[
+            lc.filter(x=>x.status==='Aberto').length,
+            lc.filter(x=>x.status==='Em andamento').length,
+            lc.filter(x=>x.status==='Resolvido').length,
+            0,
+            lc.filter(x=>x.status==='Cancelado').length,
+          ], backgroundColor: P.links.bg, borderColor: P.links.border, borderWidth:2, borderRadius:6, borderSkipped:false },
       ]
     },
     options: {
       responsive:true, maintainAspectRatio:true,
-      plugins:{ legend:{ labels:{ color:'#8B949E', boxWidth:12, padding:16 } } },
+      plugins:{
+        legend:{ labels:{ color:legendColor, boxWidth:12, padding:18, usePointStyle:true, pointStyle:'circle' } },
+        tooltip:{ backgroundColor:'#0C1424', borderColor:'#1A2840', borderWidth:1, padding:12, titleColor:'#E2EAF4', bodyColor:'#7A9ABF' }
+      },
       scales:{
-        x:{ ticks:{color:'#8B949E'}, grid:{color:'#21262D'} },
-        y:{ ticks:{color:'#8B949E', stepSize:1}, grid:{color:'#21262D'}, beginAtZero:true }
+        x:{ ticks:{color:tickColor}, grid:{color:gridColor}, border:{color:'transparent'} },
+        y:{ ticks:{color:tickColor, stepSize:1}, grid:{color:gridColor}, border:{color:'transparent'}, beginAtZero:true }
       }
     }
   });
 
-  // Gráfico 2 — Donut: distribuição por módulo
+  // Gráfico 2 — Donut moderno com hover elevado
   destroyChart('modulo');
   _charts.modulo = new Chart(document.getElementById('chart-modulo'), {
     type: 'doughnut',
@@ -1673,18 +1683,22 @@ function renderGraficos() {
       labels: ['Manutenção','Compras','Links'],
       datasets: [{
         data: [m.length, c.length, lc.length],
-        backgroundColor: ['rgba(248,81,73,.85)','rgba(227,179,65,.85)','rgba(56,139,253,.85)'],
-        borderColor: '#161B22', borderWidth: 3,
+        backgroundColor: [P.manut.bg, P.compras.bg, P.links.bg],
+        borderColor:     [P.manut.border, P.compras.border, P.links.border],
+        borderWidth: 2, hoverOffset: 10,
       }]
     },
     options: {
       responsive:true, maintainAspectRatio:true,
-      cutout:'65%',
-      plugins:{ legend:{ position:'bottom', labels:{ color:'#8B949E', boxWidth:14, padding:18 } } }
+      cutout:'70%',
+      plugins:{
+        legend:{ position:'bottom', labels:{ color:legendColor, boxWidth:12, padding:20, usePointStyle:true, pointStyle:'circle' } },
+        tooltip:{ backgroundColor:'#0C1424', borderColor:'#1A2840', borderWidth:1, padding:12, titleColor:'#E2EAF4', bodyColor:'#7A9ABF' }
+      }
     }
   });
 
-  // Gráfico 3 — Linha: abertura por dia últimos 14 dias
+  // Gráfico 3 — Linha suave com gradiente e pontos
   destroyChart('linha');
   const dias = [];
   const hoje = new Date();
@@ -1698,22 +1712,44 @@ function renderGraficos() {
   function countByDay(arr) {
     return dias.map(({key}) => arr.filter(x => x.data_abertura && x.data_abertura.startsWith(key)).length);
   }
-  _charts.linha = new Chart(document.getElementById('chart-linha'), {
+
+  function makeGradient(ctx, color) {
+    const g = ctx.createLinearGradient(0, 0, 0, 280);
+    g.addColorStop(0, color.replace(')', ', .35)').replace('rgb','rgba'));
+    g.addColorStop(1, color.replace(')', ', 0)').replace('rgb','rgba'));
+    return g;
+  }
+  const ctxLinha = document.getElementById('chart-linha').getContext('2d');
+
+  _charts.linha = new Chart(ctxLinha, {
     type: 'line',
     data: {
       labels: dias.map(d=>d.label),
       datasets: [
-        {label:'Manutenção', data:countByDay(m),  borderColor:'#F85149', backgroundColor:'rgba(248,81,73,.12)', tension:.35, fill:true, pointRadius:4, pointHoverRadius:6},
-        {label:'Compras',    data:countByDay(c),  borderColor:'#E3B341', backgroundColor:'rgba(227,179,65,.10)', tension:.35, fill:true, pointRadius:4, pointHoverRadius:6},
-        {label:'Links',      data:countByDay(lc), borderColor:'#388BFD', backgroundColor:'rgba(56,139,253,.10)', tension:.35, fill:true, pointRadius:4, pointHoverRadius:6},
+        { label:'Manutenção', data:countByDay(m),
+          borderColor: P.manut.solid, backgroundColor: makeGradient(ctxLinha, 'rgb(77,159,255)'),
+          tension:.4, fill:true, pointRadius:3, pointHoverRadius:7,
+          pointBackgroundColor: P.manut.solid, pointBorderColor:'#0C1424', pointBorderWidth:2, borderWidth:2 },
+        { label:'Compras', data:countByDay(c),
+          borderColor: P.compras.solid, backgroundColor: makeGradient(ctxLinha, 'rgb(167,139,250)'),
+          tension:.4, fill:true, pointRadius:3, pointHoverRadius:7,
+          pointBackgroundColor: P.compras.solid, pointBorderColor:'#0C1424', pointBorderWidth:2, borderWidth:2 },
+        { label:'Links', data:countByDay(lc),
+          borderColor: P.links.solid, backgroundColor: makeGradient(ctxLinha, 'rgb(52,211,153)'),
+          tension:.4, fill:true, pointRadius:3, pointHoverRadius:7,
+          pointBackgroundColor: P.links.solid, pointBorderColor:'#0C1424', pointBorderWidth:2, borderWidth:2 },
       ]
     },
     options: {
       responsive:true, maintainAspectRatio:true,
-      plugins:{ legend:{ labels:{ color:'#8B949E', boxWidth:12, padding:16 } } },
+      interaction:{ mode:'index', intersect:false },
+      plugins:{
+        legend:{ labels:{ color:legendColor, boxWidth:12, padding:18, usePointStyle:true, pointStyle:'circle' } },
+        tooltip:{ backgroundColor:'#0C1424', borderColor:'#1A2840', borderWidth:1, padding:12, titleColor:'#E2EAF4', bodyColor:'#7A9ABF' }
+      },
       scales:{
-        x:{ ticks:{color:'#8B949E'}, grid:{color:'#21262D'} },
-        y:{ ticks:{color:'#8B949E', stepSize:1}, grid:{color:'#21262D'}, beginAtZero:true }
+        x:{ ticks:{color:tickColor}, grid:{color:gridColor}, border:{color:'transparent'} },
+        y:{ ticks:{color:tickColor, stepSize:1}, grid:{color:gridColor}, border:{color:'transparent'}, beginAtZero:true }
       }
     }
   });
