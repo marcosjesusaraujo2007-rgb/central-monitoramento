@@ -1189,8 +1189,13 @@ function atualizarFormNovo() {
         <div><label class="form-label">Responsável</label><input class="form-input" id="n-resp" placeholder="Nome do técnico"></div>
         <div><label class="form-label">SLA</label><input class="form-input" id="n-sla" placeholder="Ex: 2h, 8h, 24h"></div>
       </div>
-      <div class="form-row"><label class="form-label">Prioridade</label>
-        <select class="form-input" id="n-prio"><option>Alta</option><option selected>Média</option><option>Baixa</option></select>
+      <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div><label class="form-label">Prioridade</label>
+          <select class="form-input" id="n-prio"><option>Alta</option><option selected>Média</option><option>Baixa</option></select>
+        </div>
+        <div><label class="form-label">Status inicial</label>
+          <select class="form-input" id="n-status"><option selected>Aberto</option><option>Em andamento</option><option>Crítico</option></select>
+        </div>
       </div>`;
   } else if(mod==='compras') {
     document.getElementById('form-novo-campos').innerHTML = `
@@ -1205,8 +1210,9 @@ function atualizarFormNovo() {
       </div>
       <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
         <div><label class="form-label">Prioridade</label><select class="form-input" id="n-prio-compra"><option>Alta</option><option selected>Média</option><option>Baixa</option></select></div>
-        <div><label class="form-label">Observações</label><input class="form-input" id="n-obs" placeholder="Opcional…"></div>
-      </div>`;
+        <div><label class="form-label">Status inicial</label><select class="form-input" id="n-status-compra"><option selected>Pendente</option><option>Em cotação</option><option>Aprovado</option></select></div>
+      </div>
+      <div class="form-row"><label class="form-label">Observações</label><input class="form-input" id="n-obs" placeholder="Opcional…"></div>`;
   } else {
     const optsLinks = linksData.map(l=>`<option value="${l.id}">${l.nome}</option>`).join('');
     document.getElementById('form-novo-campos').innerHTML = `
@@ -1240,7 +1246,8 @@ async function salvarNovo() {
         tipo: document.getElementById('n-tipo').value,
         resp: document.getElementById('n-resp').value||'—',
         sla: document.getElementById('n-sla').value||'—',
-        prioridade: document.getElementById('n-prio').value
+        prioridade: document.getElementById('n-prio').value,
+        status: document.getElementById('n-status').value
       })
     });
   } else if(mod==='compras') {
@@ -1254,6 +1261,7 @@ async function salvarNovo() {
         valor: parseFloat(document.getElementById('n-valor').value)||0,
         prazo: document.getElementById('n-prazo').value||'—',
         prioridade: document.getElementById('n-prio-compra').value,
+        status: document.getElementById('n-status-compra').value,
         obs: document.getElementById('n-obs').value||''
       })
     });

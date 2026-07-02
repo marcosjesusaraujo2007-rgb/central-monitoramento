@@ -284,12 +284,12 @@ app.get('/api/compras', autenticado, (req, res) => {
 });
 
 app.post('/api/compras', autenticado, (req, res) => {
-  const { desc, solicitante, depto, valor, prazo, prioridade, obs } = req.body;
+  const { desc, solicitante, depto, valor, prazo, prioridade, obs, status } = req.body;
   const { id, numero } = proximoId('compras', 'PC');
   db.prepare(`
     INSERT INTO compras (id, numero, desc, solicitante, depto, valor, status, prazo, prioridade, obs, data_abertura, data_conclusao)
-    VALUES (?, ?, ?, ?, ?, ?, 'Pendente', ?, ?, ?, ?, null)
-  `).run(id, numero, desc, solicitante, depto, valor, prazo, prioridade, obs, agora());
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, null)
+  `).run(id, numero, desc, solicitante, depto, valor, status||'Pendente', prazo, prioridade, obs, agora());
   res.json({ ok: true, id });
 });
 
@@ -318,12 +318,12 @@ app.get('/api/manutencao', autenticado, (req, res) => {
 });
 
 app.post('/api/manutencao', autenticado, (req, res) => {
-  const { desc, local, tipo, resp, sla, prioridade } = req.body;
+  const { desc, local, tipo, resp, sla, prioridade, status } = req.body;
   const { id, numero } = proximoId('manutencao', 'MNT');
   db.prepare(`
     INSERT INTO manutencao (id, numero, desc, local, tipo, resp, status, sla, prioridade, data_abertura, data_conclusao)
-    VALUES (?, ?, ?, ?, ?, ?, 'Aberto', ?, ?, ?, null)
-  `).run(id, numero, desc, local, tipo, resp, sla, prioridade, agora());
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, null)
+  `).run(id, numero, desc, local, tipo, resp, status||'Aberto', sla, prioridade, agora());
   res.json({ ok: true, id });
 });
 
