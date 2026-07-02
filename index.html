@@ -839,7 +839,7 @@ function renderCompras() {
       <td style="white-space:nowrap;font-size:12px;color:${c.data_conclusao?'#56D364':'#6E7681'}">${c.data_conclusao||'—'}</td>
       <td>
         <button class="action-btn" onclick='verDetalhe("compras",${JSON.stringify(c)})'><i class="ti ti-eye"></i></button>
-        ${isAdmin() ? `<button class="action-btn" onclick='abrirEditar("compras",${JSON.stringify(c)})'><i class="ti ti-pencil"></i></button>` : ''}
+        ${isAdmin() ? `<button class="action-btn" onclick='abrirEditar("compras","${c.id}")'><i class="ti ti-pencil"></i></button>` : ''}
         ${isAdmin() ? `<button class="action-btn" style="color:var(--red-text)" onclick='excluirChamado("compras","${c.id}","${c.desc.replace(/'/g,"\\'").substring(0,40)}")'><i class="ti ti-trash"></i></button>` : ''}
       </td>
     </tr>`).join('') : `<tr><td colspan="9" class="empty-state">Nenhum pedido encontrado</td></tr>`;
@@ -914,7 +914,7 @@ function renderManut() {
       <td style="white-space:nowrap;font-size:12px;color:${c.data_conclusao?'#56D364':'#6E7681'}">${c.data_conclusao||'—'}</td>
       <td>
         <button class="action-btn" onclick='verDetalhe("manut",${JSON.stringify(c)})'><i class="ti ti-eye"></i></button>
-        ${isAdmin() ? `<button class="action-btn" onclick='abrirEditar("manut",${JSON.stringify(c)})'><i class="ti ti-pencil"></i></button>` : ''}
+        ${isAdmin() ? `<button class="action-btn" onclick='abrirEditar("manut","${c.id}")'><i class="ti ti-pencil"></i></button>` : ''}
         ${isAdmin() ? `<button class="action-btn" style="color:var(--red-text)" onclick='excluirChamado("manut","${c.id}","${c.desc.replace(/'/g,"\\'").substring(0,40)}")'><i class="ti ti-trash"></i></button>` : ''}
       </td>
     </tr>`).join('') : `<tr><td colspan="10" class="empty-state">Nenhum chamado encontrado</td></tr>`;
@@ -1292,7 +1292,7 @@ async function salvarNovo() {
 let edicaoAtual = null;
 function escAttr(v){ return String(v==null?'':v).replace(/"/g,'&quot;'); }
 
-function abrirEdicao(tipo, id) {
+function abrirEditar(tipo, id) {
   closeModal('detalhe');
   const d = tipo==='compras' ? comprasData.find(x=>x.id===id) : manutData.find(x=>x.id===id);
   if(!d) return;
