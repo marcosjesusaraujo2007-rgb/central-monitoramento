@@ -1604,15 +1604,23 @@ function renderGraficos() {
   const taxa = total > 0 ? Math.round(resolvidos / total * 100) : 0;
 
   // KPI cards
-  document.getElementById('graficos-kpi').innerHTML = [
-    {icon:'ti-ticket',      cls:'blue',   val:total,        label:'Total de Chamados'},
-    {icon:'ti-alert-circle',cls:'red',    val:abertos,      label:'Em Aberto'},
-    {icon:'ti-circle-check',cls:'green',  val:resolvidos,   label:'Resolvidos / Concluídos'},
-    {icon:'ti-trending-up', cls:'purple', val:taxa+'%',     label:'Taxa de Resolução'},
-  ].map(k=>`
-    <div class="kpi-card">
+  const _gKpiDefs = [
+    {icon:'ti-ticket',       cls:'blue',   val:total,      label:'Total de Chamados',
+      action:()=>{ goPage('manutencao',document.getElementById('nav-manutencao')); setTimeout(()=>setFiltroManut('todos',null),50); }},
+    {icon:'ti-alert-circle', cls:'red',    val:abertos,    label:'Em Aberto',
+      action:()=>{ goPage('manutencao',document.getElementById('nav-manutencao')); setTimeout(()=>setFiltroManut('Aberto',null),50); }},
+    {icon:'ti-circle-check', cls:'green',  val:resolvidos, label:'Resolvidos / Concluídos',
+      action:()=>{ goPage('manutencao',document.getElementById('nav-manutencao')); setTimeout(()=>setFiltroManut('Concluído',null),50); }},
+    {icon:'ti-trending-up',  cls:'purple', val:taxa+'%',   label:'Taxa de Resolução',
+      action:()=>{ goPage('graficos',document.getElementById('nav-graficos')); }},
+  ];
+  window._gKpiActions = _gKpiDefs.map(k=>k.action);
+  document.getElementById('graficos-kpi').innerHTML = _gKpiDefs.map((k,i)=>`
+    <div class="kpi-card" onclick="_gKpiActions[${i}]()" style="cursor:pointer;"
+         onmouseenter="this.style.borderColor='var(--blue-light)'" onmouseleave="this.style.borderColor='var(--border)'">
       <div class="kpi-icon ${k.cls}"><i class="ti ${k.icon}"></i></div>
       <div class="kpi-info"><div class="kpi-val">${k.val}</div><div class="kpi-label">${k.label}</div></div>
+      <div style="margin-left:auto;color:var(--text3);font-size:16px;"><i class="ti ti-chevron-right"></i></div>
     </div>`).join('');
 
   // Paleta moderna
