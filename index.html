@@ -92,6 +92,8 @@
     box-shadow: 0 0 6px var(--green);
   }
   @keyframes blink { 0%,100%{opacity:1}50%{opacity:.3} }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes toastIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
 
   /* MAIN */
   .main { margin-left: 226px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
@@ -1338,43 +1340,62 @@ async function salvarEdicao() {
   const desc = document.getElementById('e-desc').value.trim();
   if(!desc){ alert('Preencha a descrição.'); return; }
 
-  if(tipo==='compras') {
-    await fetch('/api/compras/' + id, {
-      method: 'PUT',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        desc,
-        solicitante: document.getElementById('e-solic').value||'—',
-        depto: document.getElementById('e-depto').value,
-        valor: parseFloat(document.getElementById('e-valor').value)||0,
-        prazo: document.getElementById('e-prazo').value||'—',
-        status: document.getElementById('e-status').value,
-        prioridade: document.getElementById('e-prio').value,
-        obs: document.getElementById('e-obs').value,
-        data_abertura: document.getElementById('e-abertura').value||null,
-        data_conclusao: document.getElementById('e-conclusao').value||null
-      })
-    });
-  } else {
-    await fetch('/api/manutencao/' + id, {
-      method: 'PUT',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        desc,
-        local: document.getElementById('e-local').value||'—',
-        tipo: document.getElementById('e-tipo').value,
-        resp: document.getElementById('e-resp').value||'—',
-        sla: document.getElementById('e-sla').value||'—',
-        status: document.getElementById('e-status').value,
-        prioridade: document.getElementById('e-prio').value,
-        data_abertura: document.getElementById('e-abertura').value||null,
-        data_conclusao: document.getElementById('e-conclusao').value||null
-      })
-    });
+  const btn = document.querySelector('#modal-editar .btn-primary');
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader-2" style="animation:spin .8s linear infinite"></i> Salvando…';
+
+  try {
+    let res;
+    if(tipo==='compras') {
+      res = await fetch('/api/compras/' + id, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          desc,
+          solicitante: document.getElementById('e-solic').value||'—',
+          depto: document.getElementById('e-depto').value,
+          valor: parseFloat(document.getElementById('e-valor').value)||0,
+          prazo: document.getElementById('e-prazo').value||'—',
+          status: document.getElementById('e-status').value,
+          prioridade: document.getElementById('e-prio').value,
+          obs: document.getElementById('e-obs').value,
+          data_abertura: document.getElementById('e-abertura').value||null,
+          data_conclusao: document.getElementById('e-conclusao').value||null
+        })
+      });
+    } else {
+      res = await fetch('/api/manutencao/' + id, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          desc,
+          local: document.getElementById('e-local').value||'—',
+          tipo: document.getElementById('e-tipo').value,
+          resp: document.getElementById('e-resp').value||'—',
+          sla: document.getElementById('e-sla').value||'—',
+          status: document.getElementById('e-status').value,
+          prioridade: document.getElementById('e-prio').value,
+          data_abertura: document.getElementById('e-abertura').value||null,
+          data_conclusao: document.getElementById('e-conclusao').value||null
+        })
+      });
+    }
+    if(!res.ok) {
+      const err = await res.json().catch(()=>({}));
+      alert('Erro ao salvar: ' + (err.erro || res.status));
+      return;
+    }
+    closeModal('editar');
+    edicaoAtual = null;
+    await carregarDados();
+    mostrarToast('Chamado atualizado com sucesso!');
+  } catch(e) {
+    alert('Erro de conexão ao salvar. Tente novamente.');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = original;
   }
-  closeModal('editar');
-  edicaoAtual = null;
-  await carregarDados();
 }
 
 // ============================================================
@@ -1697,6 +1718,26 @@ function renderAll() {
 
 function tick() {
   document.getElementById('clock').textContent = new Date().toLocaleTimeString('pt-BR');
+}
+
+function mostrarToast(msg, tipo='ok') {
+  const old = document.getElementById('_toast');
+  if(old) old.remove();
+  const t = document.createElement('div');
+  t.id = '_toast';
+  t.textContent = msg;
+  t.style.cssText = `
+    position:fixed;bottom:28px;right:28px;z-index:9999;
+    background:${tipo==='ok'?'#0D2A14':'#1A0606'};
+    color:${tipo==='ok'?'#3DCC5E':'#F26060'};
+    border:1px solid ${tipo==='ok'?'rgba(46,168,74,.4)':'rgba(201,48,48,.4)'};
+    border-left:3px solid ${tipo==='ok'?'#3DCC5E':'#F26060'};
+    border-radius:10px;padding:12px 20px;font-size:13px;font-weight:500;
+    box-shadow:0 4px 20px rgba(0,0,0,.5);
+    animation:toastIn .25s ease;
+  `;
+  document.body.appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(),300); }, 2800);
 }
 tick(); setInterval(tick, 1000);
 setInterval(()=>{ renderDashboard(); }, 30000);
