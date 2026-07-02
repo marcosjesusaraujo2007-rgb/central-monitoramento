@@ -310,6 +310,13 @@ app.put('/api/compras/:id', autenticado, (req, res) => {
   res.json({ ok: true });
 });
 
+app.delete('/api/compras/:id', autenticado, (req, res) => {
+  if (req.session.usuario.perfil !== 'admin') return res.status(403).json({ erro: 'Sem permissão' });
+  db.prepare('DELETE FROM compras WHERE id=?').run(req.params.id);
+  db.prepare('DELETE FROM comentarios WHERE modulo=? AND chamado_id=?').run('compras', req.params.id);
+  res.json({ ok: true });
+});
+
 // ============================================================
 // MANUTENÇÃO
 // ============================================================
@@ -341,6 +348,13 @@ app.put('/api/manutencao/:id', autenticado, (req, res) => {
     data_abertura || atual.data_abertura,
     conclusao,
     req.params.id);
+  res.json({ ok: true });
+});
+
+app.delete('/api/manutencao/:id', autenticado, (req, res) => {
+  if (req.session.usuario.perfil !== 'admin') return res.status(403).json({ erro: 'Sem permissão' });
+  db.prepare('DELETE FROM manutencao WHERE id=?').run(req.params.id);
+  db.prepare('DELETE FROM comentarios WHERE modulo=? AND chamado_id=?').run('manutencao', req.params.id);
   res.json({ ok: true });
 });
 

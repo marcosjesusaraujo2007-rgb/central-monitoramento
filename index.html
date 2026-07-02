@@ -840,6 +840,7 @@ function renderCompras() {
       <td>
         <button class="action-btn" onclick='verDetalhe("compras",${JSON.stringify(c)})'><i class="ti ti-eye"></i></button>
         ${isAdmin() ? `<button class="action-btn" onclick='abrirEditar("compras",${JSON.stringify(c)})'><i class="ti ti-pencil"></i></button>` : ''}
+        ${isAdmin() ? `<button class="action-btn" style="color:var(--red-text)" onclick='excluirChamado("compras","${c.id}","${c.desc.replace(/'/g,"\\'").substring(0,40)}")'><i class="ti ti-trash"></i></button>` : ''}
       </td>
     </tr>`).join('') : `<tr><td colspan="9" class="empty-state">Nenhum pedido encontrado</td></tr>`;
 }
@@ -914,6 +915,7 @@ function renderManut() {
       <td>
         <button class="action-btn" onclick='verDetalhe("manut",${JSON.stringify(c)})'><i class="ti ti-eye"></i></button>
         ${isAdmin() ? `<button class="action-btn" onclick='abrirEditar("manut",${JSON.stringify(c)})'><i class="ti ti-pencil"></i></button>` : ''}
+        ${isAdmin() ? `<button class="action-btn" style="color:var(--red-text)" onclick='excluirChamado("manut","${c.id}","${c.desc.replace(/'/g,"\\'").substring(0,40)}")'><i class="ti ti-trash"></i></button>` : ''}
       </td>
     </tr>`).join('') : `<tr><td colspan="10" class="empty-state">Nenhum chamado encontrado</td></tr>`;
 }
@@ -1726,6 +1728,17 @@ function renderAll() {
 
 function tick() {
   document.getElementById('clock').textContent = new Date().toLocaleTimeString('pt-BR');
+}
+
+async function excluirChamado(tipo, id, desc) {
+  if(!confirm(`Excluir "${desc}"?\n\nEsta ação não pode ser desfeita.`)) return;
+  const endpoint = tipo==='compras' ? '/api/compras/' : '/api/manutencao/';
+  try {
+    const res = await fetch(endpoint + id, { method: 'DELETE' });
+    if(!res.ok) { const e = await res.json().catch(()=>{}); alert('Erro: ' + (e?.erro||res.status)); return; }
+    await carregarDados();
+    mostrarToast('Chamado excluído.');
+  } catch { alert('Erro de conexão.'); }
 }
 
 function mostrarToast(msg, tipo='ok') {
