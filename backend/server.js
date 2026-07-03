@@ -9,30 +9,17 @@ const db = require('./database');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
-// Popula banco automaticamente se estiver vazio
-const total = db.prepare('SELECT COUNT(*) as n FROM compras').get().n;
-if (total === 0) {
-  require('./seed');
-}
-
-// Cria usuários padrão se não existirem
+// Usuários padrão criados na inicialização se não existirem
 const usuariosPadrao = [
   { nome: 'Administrador', email: 'admin@sistema.com', senha: 'admin123', perfil: 'admin' },
   { nome: 'Marcos Araújo', email: 'marcos.araujo@colegioser.com', senha: 'Marcos@2007', perfil: 'admin' },
 ];
-for (const u of usuariosPadrao) {
-  const existe = db.prepare('SELECT id FROM usuarios WHERE email = ?').get(u.email);
-  if (!existe) {
-    const hash = bcrypt.hashSync(u.senha, 10);
-    db.prepare("INSERT INTO usuarios (nome, email, senha, perfil) VALUES (?, ?, ?, ?)").run(u.nome, u.email, hash, u.perfil);
-  }
-}
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(session({
-  secret: 'central-ti-secret-2024',
+  secret: process.env.SESSION_SECRET || 'central-ti-secret-2024',
   resave: false,
   saveUninitialized: false,
   cookie: { maxAge: 8 * 60 * 60 * 1000 } // 8 horas
@@ -47,6 +34,9 @@ function autenticado(req, res, next) {
   res.status(401).json({ erro: 'Não autenticado' });
 }
 
+// Rotas async precisam repassar erros ao Express manualmente
+const ah = fn => (req, res, next) => fn(req, res, next).catch(next);
+
 // ============================================================
 // AUTH
 // ============================================================
@@ -58,15 +48,15 @@ app.get('/', (req, res) => {
   }
 });
 
-app.post('/api/login', (req, res) => {
+app.post('/api/login', ah(async (req, res) => {
   const { email, senha } = req.body;
-  const user = db.prepare('SELECT * FROM usuarios WHERE email = ?').get(email);
+  const user = await db.get('SELECT * FROM usuarios WHERE email = $1', [email]);
   if (!user || !bcrypt.compareSync(senha, user.senha)) {
     return res.status(401).json({ erro: 'Email ou senha incorretos' });
   }
   req.session.usuario = { id: user.id, nome: user.nome, email: user.email, perfil: user.perfil };
   res.json({ ok: true, nome: user.nome });
-});
+}));
 
 app.post('/api/logout', (req, res) => {
   req.session.destroy();
@@ -81,11 +71,10 @@ app.get('/api/me', (req, res) => {
   }
 });
 
-// Gera próximo ID sequencial para um módulo
-function proximoId(modulo, prefixo) {
-  const atual = db.prepare('SELECT ultimo FROM contadores WHERE modulo = ?').get(modulo);
-  const proximo = atual.ultimo + 1;
-  db.prepare('UPDATE contadores SET ultimo = ? WHERE modulo = ?').run(proximo, modulo);
+// Gera próximo ID sequencial para um módulo (atômico no Postgres)
+async function proximoId(modulo, prefixo) {
+  const row = await db.get('UPDATE contadores SET ultimo = ultimo + 1 WHERE modulo = $1 RETURNING ultimo', [modulo]);
+  const proximo = row.ultimo;
   return {
     numero: proximo,
     id: `${prefixo}-${String(proximo).padStart(4, '0')}`
@@ -125,15 +114,15 @@ app.get('/api/compras/template', autenticado, (req, res) => {
 });
 
 // Importar Compras
-app.post('/api/compras/importar', autenticado, upload.single('arquivo'), (req, res) => {
+app.post('/api/compras/importar', autenticado, upload.single('arquivo'), ah(async (req, res) => {
   if (!req.file) return res.status(400).json({ erro: 'Nenhum arquivo enviado' });
   try {
-    const result = importarPlanilha(req.file.buffer, 'compras');
+    const result = await importarPlanilha(req.file.buffer, 'compras');
     res.json(result);
   } catch(e) {
     res.status(400).json({ erro: 'Arquivo inválido: ' + e.message });
   }
-});
+}));
 
 // Template Manutenção
 app.get('/api/manutencao/template', autenticado, (req, res) => {
@@ -151,15 +140,15 @@ app.get('/api/manutencao/template', autenticado, (req, res) => {
 });
 
 // Importar Manutenção
-app.post('/api/manutencao/importar', autenticado, upload.single('arquivo'), (req, res) => {
+app.post('/api/manutencao/importar', autenticado, upload.single('arquivo'), ah(async (req, res) => {
   if (!req.file) return res.status(400).json({ erro: 'Nenhum arquivo enviado' });
   try {
-    const result = importarPlanilha(req.file.buffer, 'manutencao');
+    const result = await importarPlanilha(req.file.buffer, 'manutencao');
     res.json(result);
   } catch(e) {
     res.status(400).json({ erro: 'Arquivo inválido: ' + e.message });
   }
-});
+}));
 
 function formatarData(val) {
   if (!val) return null;
@@ -206,7 +195,7 @@ function mapPrioridade(val) {
   return 'Média';
 }
 
-function importarPlanilha(buffer, moduloFiltro) {
+async function importarPlanilha(buffer, moduloFiltro) {
   const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true });
   const ws = wb.Sheets[wb.SheetNames[0]];
 
@@ -257,18 +246,18 @@ function importarPlanilha(buffer, moduloFiltro) {
     try {
       if (moduloFiltro === 'compras') {
         const status = mapStatus(r['Status'], 'compras');
-        const { id, numero } = proximoId('compras', 'PC');
-        db.prepare(`INSERT INTO compras (id,numero,desc,solicitante,depto,valor,status,prazo,prioridade,obs,data_abertura,data_conclusao)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
-          .run(id, numero, descFinal, solicitante||'—', setor||'—', 0, status, '—', prioridade,
-            String(r['Observação']||r['Observacao']||r['Observações']||''), dataAbertura, dataConclusao);
+        const { id, numero } = await proximoId('compras', 'PC');
+        await db.run(`INSERT INTO compras (id,numero,"desc",solicitante,depto,valor,status,prazo,prioridade,obs,data_abertura,data_conclusao)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+          [id, numero, descFinal, solicitante||'—', setor||'—', 0, status, '—', prioridade,
+            String(r['Observação']||r['Observacao']||r['Observações']||''), dataAbertura, dataConclusao]);
       } else {
         const status = mapStatus(r['Status'], 'manutencao');
-        const { id, numero } = proximoId('manutencao', 'MNT');
-        db.prepare(`INSERT INTO manutencao (id,numero,desc,local,tipo,resp,status,sla,prioridade,data_abertura,data_conclusao)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
-          .run(id, numero, descFinal, setor||'—', assunto||'Geral', solicitante||'—',
-            status, '—', prioridade, dataAbertura, dataConclusao);
+        const { id, numero } = await proximoId('manutencao', 'MNT');
+        await db.run(`INSERT INTO manutencao (id,numero,"desc",local,tipo,resp,status,sla,prioridade,data_abertura,data_conclusao)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+          [id, numero, descFinal, setor||'—', assunto||'Geral', solicitante||'—',
+            status, '—', prioridade, dataAbertura, dataConclusao]);
       }
       importados++;
     } catch(e) { erros.push(`Erro em "${descFinal}": ${e.message}`); }
@@ -279,185 +268,216 @@ function importarPlanilha(buffer, moduloFiltro) {
 // ============================================================
 // COMPRAS
 // ============================================================
-app.get('/api/compras', autenticado, (req, res) => {
-  res.json(db.prepare('SELECT * FROM compras ORDER BY numero DESC').all());
-});
+app.get('/api/compras', autenticado, ah(async (req, res) => {
+  res.json(await db.all('SELECT * FROM compras ORDER BY numero DESC'));
+}));
 
-app.post('/api/compras', autenticado, (req, res) => {
+app.post('/api/compras', autenticado, ah(async (req, res) => {
   const { desc, solicitante, depto, valor, prazo, prioridade, obs, status } = req.body;
-  const { id, numero } = proximoId('compras', 'PC');
-  db.prepare(`
-    INSERT INTO compras (id, numero, desc, solicitante, depto, valor, status, prazo, prioridade, obs, data_abertura, data_conclusao)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, null)
-  `).run(id, numero, desc, solicitante, depto, valor, status||'Pendente', prazo, prioridade, obs, agora());
+  const { id, numero } = await proximoId('compras', 'PC');
+  await db.run(`
+    INSERT INTO compras (id, numero, "desc", solicitante, depto, valor, status, prazo, prioridade, obs, data_abertura, data_conclusao)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, null)
+  `, [id, numero, desc, solicitante, depto, valor, status||'Pendente', prazo, prioridade, obs, agora()]);
   res.json({ ok: true, id });
-});
+}));
 
-app.put('/api/compras/:id', autenticado, (req, res) => {
+app.put('/api/compras/:id', autenticado, ah(async (req, res) => {
   const { desc, solicitante, depto, valor, status, prazo, prioridade, obs, data_abertura, data_conclusao } = req.body;
-  const atual = db.prepare('SELECT data_abertura, data_conclusao FROM compras WHERE id=?').get(req.params.id);
+  const atual = await db.get('SELECT data_abertura, data_conclusao FROM compras WHERE id=$1', [req.params.id]);
   let conclusao;
   if (data_conclusao) conclusao = data_conclusao;
   else if (STATUS_CONCLUSAO.includes(status)) conclusao = agora();
   else conclusao = null;
-  db.prepare(`
-    UPDATE compras SET desc=?, solicitante=?, depto=?, valor=?, status=?, prazo=?, prioridade=?, obs=?, data_abertura=?, data_conclusao=?
-    WHERE id=?
-  `).run(desc, solicitante, depto, valor, status, prazo, prioridade, obs,
+  await db.run(`
+    UPDATE compras SET "desc"=$1, solicitante=$2, depto=$3, valor=$4, status=$5, prazo=$6, prioridade=$7, obs=$8, data_abertura=$9, data_conclusao=$10
+    WHERE id=$11
+  `, [desc, solicitante, depto, valor, status, prazo, prioridade, obs,
     data_abertura || atual.data_abertura,
     conclusao,
-    req.params.id);
+    req.params.id]);
   res.json({ ok: true });
-});
+}));
 
-app.delete('/api/compras/:id', autenticado, (req, res) => {
+app.delete('/api/compras/:id', autenticado, ah(async (req, res) => {
   if (req.session.usuario.perfil !== 'admin') return res.status(403).json({ erro: 'Sem permissão' });
-  db.prepare('DELETE FROM compras WHERE id=?').run(req.params.id);
-  db.prepare('DELETE FROM comentarios WHERE modulo=? AND chamado_id=?').run('compras', req.params.id);
+  await db.run('DELETE FROM compras WHERE id=$1', [req.params.id]);
+  await db.run('DELETE FROM comentarios WHERE modulo=$1 AND chamado_id=$2', ['compras', req.params.id]);
   res.json({ ok: true });
-});
+}));
 
 // ============================================================
 // MANUTENÇÃO
 // ============================================================
-app.get('/api/manutencao', autenticado, (req, res) => {
-  res.json(db.prepare('SELECT * FROM manutencao ORDER BY numero DESC').all());
-});
+app.get('/api/manutencao', autenticado, ah(async (req, res) => {
+  res.json(await db.all('SELECT * FROM manutencao ORDER BY numero DESC'));
+}));
 
-app.post('/api/manutencao', autenticado, (req, res) => {
+app.post('/api/manutencao', autenticado, ah(async (req, res) => {
   const { desc, local, tipo, resp, sla, prioridade, status } = req.body;
-  const { id, numero } = proximoId('manutencao', 'MNT');
-  db.prepare(`
-    INSERT INTO manutencao (id, numero, desc, local, tipo, resp, status, sla, prioridade, data_abertura, data_conclusao)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, null)
-  `).run(id, numero, desc, local, tipo, resp, status||'Aberto', sla, prioridade, agora());
+  const { id, numero } = await proximoId('manutencao', 'MNT');
+  await db.run(`
+    INSERT INTO manutencao (id, numero, "desc", local, tipo, resp, status, sla, prioridade, data_abertura, data_conclusao)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, null)
+  `, [id, numero, desc, local, tipo, resp, status||'Aberto', sla, prioridade, agora()]);
   res.json({ ok: true, id });
-});
+}));
 
-app.put('/api/manutencao/:id', autenticado, (req, res) => {
+app.put('/api/manutencao/:id', autenticado, ah(async (req, res) => {
   const { desc, local, tipo, resp, status, sla, prioridade, data_abertura, data_conclusao } = req.body;
-  const atual = db.prepare('SELECT data_abertura, data_conclusao FROM manutencao WHERE id=?').get(req.params.id);
+  const atual = await db.get('SELECT data_abertura, data_conclusao FROM manutencao WHERE id=$1', [req.params.id]);
   let conclusao;
   if (data_conclusao) conclusao = data_conclusao;
   else if (STATUS_CONCLUSAO.includes(status)) conclusao = agora();
   else conclusao = null;
-  db.prepare(`
-    UPDATE manutencao SET desc=?, local=?, tipo=?, resp=?, status=?, sla=?, prioridade=?, data_abertura=?, data_conclusao=?
-    WHERE id=?
-  `).run(desc, local, tipo, resp, status, sla, prioridade,
+  await db.run(`
+    UPDATE manutencao SET "desc"=$1, local=$2, tipo=$3, resp=$4, status=$5, sla=$6, prioridade=$7, data_abertura=$8, data_conclusao=$9
+    WHERE id=$10
+  `, [desc, local, tipo, resp, status, sla, prioridade,
     data_abertura || atual.data_abertura,
     conclusao,
-    req.params.id);
+    req.params.id]);
   res.json({ ok: true });
-});
+}));
 
-app.delete('/api/manutencao/:id', autenticado, (req, res) => {
+app.delete('/api/manutencao/:id', autenticado, ah(async (req, res) => {
   if (req.session.usuario.perfil !== 'admin') return res.status(403).json({ erro: 'Sem permissão' });
-  db.prepare('DELETE FROM manutencao WHERE id=?').run(req.params.id);
-  db.prepare('DELETE FROM comentarios WHERE modulo=? AND chamado_id=?').run('manutencao', req.params.id);
+  await db.run('DELETE FROM manutencao WHERE id=$1', [req.params.id]);
+  await db.run('DELETE FROM comentarios WHERE modulo=$1 AND chamado_id=$2', ['manutencao', req.params.id]);
   res.json({ ok: true });
-});
+}));
 
 // ============================================================
 // LINKS
 // ============================================================
-app.get('/api/links', autenticado, (req, res) => {
-  res.json(db.prepare('SELECT * FROM links').all());
-});
+app.get('/api/links', autenticado, ah(async (req, res) => {
+  res.json(await db.all('SELECT * FROM links'));
+}));
 
-app.put('/api/links/:id', autenticado, (req, res) => {
+app.put('/api/links/:id', autenticado, ah(async (req, res) => {
   const { latencia, uptime, status, ultima } = req.body;
-  db.prepare('UPDATE links SET latencia=?, uptime=?, status=?, ultima=? WHERE id=?')
-    .run(latencia, uptime, status, ultima, req.params.id);
+  await db.run('UPDATE links SET latencia=$1, uptime=$2, status=$3, ultima=$4 WHERE id=$5',
+    [latencia, uptime, status, ultima, req.params.id]);
   res.json({ ok: true });
-});
+}));
 
 // ============================================================
 // CHAMADOS DE LINK
 // ============================================================
-app.get('/api/links-chamados', autenticado, (req, res) => {
-  res.json(db.prepare('SELECT * FROM links_chamados ORDER BY numero DESC').all());
-});
+app.get('/api/links-chamados', autenticado, ah(async (req, res) => {
+  res.json(await db.all('SELECT * FROM links_chamados ORDER BY numero DESC'));
+}));
 
-app.post('/api/links-chamados', autenticado, (req, res) => {
+app.post('/api/links-chamados', autenticado, ah(async (req, res) => {
   const { linkId, linkNome, tipo, desc, resp, prioridade } = req.body;
-  const { id, numero } = proximoId('links_chamados', 'LCH');
-  db.prepare(`
-    INSERT INTO links_chamados (id, numero, linkId, linkNome, tipo, desc, resp, prioridade, status, data_abertura, data_conclusao)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Aberto', ?, null)
-  `).run(id, numero, linkId, linkNome, tipo, desc, resp, prioridade, agora());
+  const { id, numero } = await proximoId('links_chamados', 'LCH');
+  await db.run(`
+    INSERT INTO links_chamados (id, numero, "linkId", "linkNome", tipo, "desc", resp, prioridade, status, data_abertura, data_conclusao)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8, 'Aberto', $9, null)
+  `, [id, numero, linkId, linkNome, tipo, desc, resp, prioridade, agora()]);
   res.json({ ok: true, id });
-});
+}));
 
-app.put('/api/links-chamados/:id', autenticado, (req, res) => {
+app.put('/api/links-chamados/:id', autenticado, ah(async (req, res) => {
   const { status, data_conclusao } = req.body;
   const conclusao = data_conclusao || (STATUS_CONCLUSAO.includes(status) ? agora() : null);
-  db.prepare('UPDATE links_chamados SET status=?, data_conclusao=? WHERE id=?')
-    .run(status, conclusao, req.params.id);
+  await db.run('UPDATE links_chamados SET status=$1, data_conclusao=$2 WHERE id=$3',
+    [status, conclusao, req.params.id]);
   res.json({ ok: true });
-});
+}));
 
 // ============================================================
 // COMENTÁRIOS
 // ============================================================
-app.get('/api/comentarios/:modulo/:id', autenticado, (req, res) => {
-  const rows = db.prepare(
-    'SELECT * FROM comentarios WHERE modulo=? AND chamado_id=? ORDER BY id ASC'
-  ).all(req.params.modulo, req.params.id);
+app.get('/api/comentarios/:modulo/:id', autenticado, ah(async (req, res) => {
+  const rows = await db.all(
+    'SELECT * FROM comentarios WHERE modulo=$1 AND chamado_id=$2 ORDER BY id ASC',
+    [req.params.modulo, req.params.id]);
   res.json(rows);
-});
+}));
 
-app.post('/api/comentarios/:modulo/:id', autenticado, (req, res) => {
+app.post('/api/comentarios/:modulo/:id', autenticado, ah(async (req, res) => {
   const { texto } = req.body;
   if (!texto || !texto.trim()) return res.status(400).json({ erro: 'Texto obrigatório' });
-  db.prepare(
-    'INSERT INTO comentarios (modulo, chamado_id, usuario_nome, texto, data) VALUES (?,?,?,?,?)'
-  ).run(req.params.modulo, req.params.id, req.session.usuario.nome, texto.trim(), agora());
+  await db.run(
+    'INSERT INTO comentarios (modulo, chamado_id, usuario_nome, texto, data) VALUES ($1,$2,$3,$4,$5)',
+    [req.params.modulo, req.params.id, req.session.usuario.nome, texto.trim(), agora()]);
   res.json({ ok: true });
-});
+}));
 
 // ============================================================
 // USUÁRIOS
 // ============================================================
-app.get('/api/usuarios', autenticado, (req, res) => {
+app.get('/api/usuarios', autenticado, ah(async (req, res) => {
   if (req.session.usuario.perfil !== 'admin') return res.status(403).json({ erro: 'Sem permissão' });
-  res.json(db.prepare('SELECT id, nome, email, perfil FROM usuarios').all());
-});
+  res.json(await db.all('SELECT id, nome, email, perfil FROM usuarios'));
+}));
 
-app.post('/api/usuarios', autenticado, (req, res) => {
+app.post('/api/usuarios', autenticado, ah(async (req, res) => {
   if (req.session.usuario.perfil !== 'admin') return res.status(403).json({ erro: 'Sem permissão' });
   const { nome, email, senha, perfil } = req.body;
   if (!nome || !email || !senha) return res.status(400).json({ erro: 'Campos obrigatórios' });
-  const existe = db.prepare('SELECT id FROM usuarios WHERE email = ?').get(email);
+  const existe = await db.get('SELECT id FROM usuarios WHERE email = $1', [email]);
   if (existe) return res.status(400).json({ erro: 'Email já cadastrado' });
   const hash = bcrypt.hashSync(senha, 10);
-  db.prepare('INSERT INTO usuarios (nome, email, senha, perfil) VALUES (?, ?, ?, ?)').run(nome, email, hash, perfil || 'usuario');
+  await db.run('INSERT INTO usuarios (nome, email, senha, perfil) VALUES ($1,$2,$3,$4)', [nome, email, hash, perfil || 'usuario']);
   res.json({ ok: true });
-});
+}));
 
-app.put('/api/usuarios/:id', autenticado, (req, res) => {
+app.put('/api/usuarios/:id', autenticado, ah(async (req, res) => {
   if (req.session.usuario.perfil !== 'admin') return res.status(403).json({ erro: 'Sem permissão' });
   const { nome, email, senha, perfil } = req.body;
   if (senha) {
     const hash = bcrypt.hashSync(senha, 10);
-    db.prepare('UPDATE usuarios SET nome=?, email=?, senha=?, perfil=? WHERE id=?').run(nome, email, hash, perfil, req.params.id);
+    await db.run('UPDATE usuarios SET nome=$1, email=$2, senha=$3, perfil=$4 WHERE id=$5', [nome, email, hash, perfil, req.params.id]);
   } else {
-    db.prepare('UPDATE usuarios SET nome=?, email=?, perfil=? WHERE id=?').run(nome, email, perfil, req.params.id);
+    await db.run('UPDATE usuarios SET nome=$1, email=$2, perfil=$3 WHERE id=$4', [nome, email, perfil, req.params.id]);
   }
   res.json({ ok: true });
-});
+}));
 
-app.delete('/api/usuarios/:id', autenticado, (req, res) => {
+app.delete('/api/usuarios/:id', autenticado, ah(async (req, res) => {
   if (req.session.usuario.perfil !== 'admin') return res.status(403).json({ erro: 'Sem permissão' });
   if (Number(req.params.id) === req.session.usuario.id) return res.status(400).json({ erro: 'Não pode excluir a si mesmo' });
-  db.prepare('DELETE FROM usuarios WHERE id = ?').run(req.params.id);
+  await db.run('DELETE FROM usuarios WHERE id = $1', [req.params.id]);
   res.json({ ok: true });
+}));
+
+// Tratador de erros das rotas async
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ erro: 'Erro interno do servidor' });
 });
 
 // ============================================================
 // INICIAR SERVIDOR
 // ============================================================
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Servidor rodando em http://localhost:${PORT}`);
+
+async function iniciar() {
+  await db.init();
+
+  // Popula banco automaticamente se estiver vazio
+  const total = (await db.get('SELECT COUNT(*)::int AS n FROM compras')).n;
+  if (total === 0) {
+    await require('./seed')();
+  }
+
+  // Cria usuários padrão se não existirem
+  for (const u of usuariosPadrao) {
+    const existe = await db.get('SELECT id FROM usuarios WHERE email = $1', [u.email]);
+    if (!existe) {
+      const hash = bcrypt.hashSync(u.senha, 10);
+      await db.run('INSERT INTO usuarios (nome, email, senha, perfil) VALUES ($1,$2,$3,$4)', [u.nome, u.email, hash, u.perfil]);
+    }
+  }
+
+  app.listen(PORT, () => {
+    console.log(`Servidor rodando em http://localhost:${PORT}`);
+  });
+}
+
+iniciar().catch(e => {
+  console.error('Erro ao iniciar o servidor:', e);
+  process.exit(1);
 });

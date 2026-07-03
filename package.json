@@ -3,17 +3,21 @@
   "version": "1.0.0",
   "description": "Central de Monitoramento TI",
   "main": "backend/server.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node backend/server.js",
-    "seed": "node backend/seed.js"
+    "seed": "node backend/seed.js",
+    "importar-producao": "node backend/importar-producao.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
-    "better-sqlite3": "^9.4.3",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "express-session": "^1.18.1",
     "multer": "^2.2.0",
+    "pg": "^8.16.0",
     "xlsx": "^0.18.5"
   }
 }
