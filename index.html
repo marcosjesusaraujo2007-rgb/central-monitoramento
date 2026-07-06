@@ -88,12 +88,49 @@
   .footer-info { font-size: 11px; color: var(--text3); }
   .status-dot {
     display: inline-block; width: 7px; height: 7px; border-radius: 50%;
-    background: var(--green); margin-right: 5px; animation: blink 2.5s infinite;
+    background: var(--green); margin-right: 5px; animation: heartbeat 2.4s ease-in-out infinite;
     box-shadow: 0 0 6px var(--green);
   }
   @keyframes blink { 0%,100%{opacity:1}50%{opacity:.3} }
   @keyframes spin { to { transform: rotate(360deg); } }
   @keyframes toastIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+
+  /* Micro-animações funcionais */
+  @keyframes heartbeat {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 4px var(--green); opacity: .75; }
+    50%      { transform: scale(1.35); box-shadow: 0 0 10px var(--green); opacity: 1; }
+  }
+
+  .page.active { animation: page-in .3s ease-out; }
+  @keyframes page-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  /* Cascata dos cards — só quando a página acabou de ser aberta (.anim-in) */
+  .page.anim-in :is(.kpi-card, .stat-card, .chart-card, .link-card) { animation: card-in .4s ease-out both; }
+  .page.anim-in :is(.kpi-card, .stat-card, .chart-card, .link-card):nth-child(2) { animation-delay: .06s; }
+  .page.anim-in :is(.kpi-card, .stat-card, .chart-card, .link-card):nth-child(3) { animation-delay: .12s; }
+  .page.anim-in :is(.kpi-card, .stat-card, .chart-card, .link-card):nth-child(4) { animation-delay: .18s; }
+  .page.anim-in :is(.kpi-card, .stat-card, .chart-card, .link-card):nth-child(5) { animation-delay: .24s; }
+  .page.anim-in :is(.kpi-card, .stat-card, .chart-card, .link-card):nth-child(6) { animation-delay: .30s; }
+  @keyframes card-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  /* Pulso de urgência (badge de críticos na sidebar) */
+  .nav-badge.pulse { animation: badge-pulse 2s ease-in-out infinite; }
+  @keyframes badge-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(248,81,73,.5); }
+    70%  { box-shadow: 0 0 0 7px rgba(248,81,73,0); }
+    100% { box-shadow: 0 0 0 0 rgba(248,81,73,0); }
+  }
+
+  @keyframes alert-glow {
+    0%, 100% { box-shadow: 0 2px 12px rgba(201,48,48,.08); }
+    50%      { box-shadow: 0 2px 20px rgba(201,48,48,.3); }
+  }
 
   /* MAIN */
   .main { margin-left: 226px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
@@ -226,9 +263,11 @@
     text-transform: uppercase; letter-spacing: .08em; font-weight: 700;
     padding: 11px 16px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap;
   }
-  td { padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text2); font-size: 13px; vertical-align: middle; }
+  td { padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text2); font-size: 13px; vertical-align: middle; transition: background .15s ease; }
   tr:last-child td { border-bottom: none; }
   tr:hover td { background: rgba(255,255,255,.025); }
+  tbody tr { transition: transform .15s ease; }
+  tbody tr:hover { transform: translateX(3px); }
   .mono { font-family: var(--mono); font-size: 12px; }
   .pill { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; white-space: nowrap; }
   .pill-red { background: var(--red-bg); color: var(--red-text); border: 1px solid rgba(201,48,48,.2); }
@@ -346,6 +385,7 @@
     padding: 10px 16px; font-size: 12px; font-weight: 500;
     display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
     box-shadow: 0 2px 12px rgba(201,48,48,.1);
+    animation: alert-glow 2.6s ease-in-out infinite;
   }
 
   /* CARDS GRID */
@@ -357,6 +397,11 @@
   }
   .stat-card:hover { border-color: var(--border2); transform: translateY(-1px); box-shadow: var(--shadow-lg); }
   .stat-card.active-filter { border-color: var(--blue-light); background: var(--blue-bg); box-shadow: 0 0 16px rgba(31,111,235,.15); }
+
+  /* Acessibilidade: reduz movimento para quem prefere */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  }
   .stat-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; font-weight: 600; }
   .stat-val { font-size: 28px; font-weight: 700; font-family: var(--mono); color: var(--text); }
   .stat-val.red { color: var(--red-text); }
@@ -760,6 +805,7 @@ function goPage(id, el) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
+  dispararCascata(document.getElementById('page-'+id));
   if(el) el.classList.add('active');
   const [t,s] = pageTitles[id];
   document.getElementById('page-title').textContent = t;
@@ -957,6 +1003,36 @@ async function resolverLinkChamado(id) {
 // ============================================================
 // DASHBOARD UNIFICADO
 // ============================================================
+// Cascata dos cards ao abrir uma página (a classe sai depois para o
+// re-render automático de 30s não repetir a animação)
+function dispararCascata(pageEl) {
+  if (!pageEl) return;
+  pageEl.classList.add('anim-in');
+  setTimeout(() => pageEl.classList.remove('anim-in'), 900);
+}
+
+// Contagem animada dos KPIs — só anima quando o valor muda de verdade
+const _kpiPrev = {};
+function animarKpis(container) {
+  container.querySelectorAll('.kpi-val[data-alvo]').forEach((el, i) => {
+    const alvo = Number(el.dataset.alvo);
+    const moeda = el.dataset.moeda === '1';
+    const fmt = v => moeda ? 'R$' + Math.round(v).toLocaleString('pt-BR') : String(Math.round(v));
+    const inicio = _kpiPrev[i] === undefined ? 0 : _kpiPrev[i];
+    _kpiPrev[i] = alvo;
+    if (inicio === alvo || document.hidden) { el.textContent = fmt(alvo); return; }
+    const t0 = performance.now(), dur = 700;
+    (function passo(t) {
+      const p = Math.min((t - t0) / dur, 1);
+      const suave = 1 - Math.pow(1 - p, 3); // ease-out
+      el.textContent = fmt(inicio + (alvo - inicio) * suave);
+      if (p < 1) requestAnimationFrame(passo);
+    })(t0);
+    // Garante o valor final mesmo se a aba perder o foco no meio da contagem
+    setTimeout(() => { el.textContent = fmt(alvo); }, dur + 80);
+  });
+}
+
 function renderDashboard() {
   const c = comprasData, m = manutData, l = linksData, lc = linksChamados;
   const criticos = m.filter(x=>x.status==='Crítico').length;
@@ -972,15 +1048,15 @@ function renderDashboard() {
 
   // KPI cards interativos
   const _kpiDefs = [
-    {icon:'ti-shopping-cart', cls:'yellow', val: pedidosAbertos, label:'Pedidos em aberto', sub: pedidosAbertos===1?'pedido aguardando':'pedidos aguardando',
+    {icon:'ti-shopping-cart', cls:'yellow', num: pedidosAbertos, label:'Pedidos em aberto', sub: pedidosAbertos===1?'pedido aguardando':'pedidos aguardando',
       action: ()=>{ goPage('compras',document.getElementById('nav-compras')); setTimeout(()=>setFiltroCompras('Pendente',null),50); }},
-    {icon:'ti-alert-triangle', cls: criticos>0?'red':'green', val: criticos, label:'Manutenções críticas', sub: criticos>0?'atenção imediata':'sem críticos',
+    {icon:'ti-alert-triangle', cls: criticos>0?'red':'green', num: criticos, label:'Manutenções críticas', sub: criticos>0?'atenção imediata':'sem críticos',
       action: ()=>{ goPage('manutencao',document.getElementById('nav-manutencao')); setTimeout(()=>setFiltroManut('Crítico',null),50); }},
-    {icon:'ti-wifi-off', cls: offline>0?'red':'green', val: offline, label:'Links offline', sub: `${l.filter(x=>x.status==='online').length} online de ${l.length}`,
+    {icon:'ti-wifi-off', cls: offline>0?'red':'green', num: offline, label:'Links offline', sub: `${l.filter(x=>x.status==='online').length} online de ${l.length}`,
       action: ()=>{ goPage('links',document.getElementById('nav-links')); }},
-    {icon:'ti-calendar-event', cls:'blue', val: chamadosHoje, label:'Chamados hoje', sub: 'abertos hoje',
+    {icon:'ti-calendar-event', cls:'blue', num: chamadosHoje, label:'Chamados hoje', sub: 'abertos hoje',
       action: ()=>{ goPage('manutencao',document.getElementById('nav-manutencao')); }},
-    {icon:'ti-currency-dollar', cls:'purple', val:'R$'+valorAberto.toLocaleString('pt-BR',{minimumFractionDigits:0}), label:'Valor em aberto', sub:'pedidos pendentes',
+    {icon:'ti-currency-dollar', cls:'purple', num: valorAberto, moeda: true, label:'Valor em aberto', sub:'pedidos pendentes',
       action: ()=>{ goPage('compras',document.getElementById('nav-compras')); setTimeout(()=>setFiltroCompras('Pendente',null),50); }},
   ];
   window._kpiActions = _kpiDefs.map(k=>k.action);
@@ -988,12 +1064,13 @@ function renderDashboard() {
     <div class="kpi-card" onclick="_kpiActions[${i}]()" style="cursor:pointer;" onmouseenter="this.style.borderColor='var(--blue-light)'" onmouseleave="this.style.borderColor='var(--border)'">
       <div class="kpi-icon ${k.cls}"><i class="ti ${k.icon}"></i></div>
       <div class="kpi-info">
-        <div class="kpi-val">${k.val}</div>
+        <div class="kpi-val" data-alvo="${k.num}" data-moeda="${k.moeda?1:0}"></div>
         <div class="kpi-label">${k.label}</div>
         <div style="font-size:10px;color:var(--text3);margin-top:2px;">${k.sub}</div>
       </div>
       <div style="margin-left:auto;color:var(--text3);font-size:16px;"><i class="ti ti-chevron-right"></i></div>
     </div>`).join('');
+  animarKpis(document.getElementById('dash-metrics'));
 
   // Alertas
   let alerts = '';
@@ -1070,6 +1147,7 @@ function renderDashboard() {
   // Badges sidebar
   document.getElementById('nb-compras').textContent = pedidosAbertos;
   document.getElementById('nb-manut').textContent = criticos;
+  document.getElementById('nb-manut').classList.toggle('pulse', criticos > 0);
   document.getElementById('nb-links').textContent = lc.filter(x=>x.status!=='Resolvido').length;
 }
 
@@ -1768,6 +1846,7 @@ function renderAll() {
   renderManutMetrics(); renderManut();
   renderLinksChamados();
   renderDashboard();
+  dispararCascata(document.querySelector('.page.active'));
 }
 
 function tick() {
