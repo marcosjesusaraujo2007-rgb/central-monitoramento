@@ -9,16 +9,15 @@ const db = require('./database');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
-// Usuários padrão criados na inicialização se não existirem
-const usuariosPadrao = [
-  { nome: 'Administrador', email: 'admin@sistema.com', senha: 'admin123', perfil: 'admin' },
-  { nome: 'Marcos Araújo', email: 'marcos.araujo@colegioser.com', senha: 'Marcos@2007', perfil: 'admin' },
-];
-
 const app = express();
+app.set('trust proxy', 1); // atrás do proxy do Render
 app.use(cors());
 app.use(express.json());
+
+// Sessões guardadas no Postgres: sobrevivem a reinícios do servidor
+const PgSession = require('connect-pg-simple')(session);
 app.use(session({
+  store: new PgSession({ pool: db.pool, createTableIfMissing: true }),
   secret: process.env.SESSION_SECRET || 'central-ti-secret-2024',
   resave: false,
   saveUninitialized: false,
@@ -48,12 +47,29 @@ app.get('/', (req, res) => {
   }
 });
 
+// Proteção contra força bruta: 5 falhas por IP a cada 15 minutos
+const falhasLogin = new Map();
+const LIMITE_FALHAS = 5, JANELA_MS = 15 * 60 * 1000;
+
 app.post('/api/login', ah(async (req, res) => {
+  const ip = req.ip;
+  const agoraMs = Date.now();
+  const reg = falhasLogin.get(ip);
+  if (reg && agoraMs - reg.inicio < JANELA_MS && reg.n >= LIMITE_FALHAS) {
+    const min = Math.ceil((JANELA_MS - (agoraMs - reg.inicio)) / 60000);
+    return res.status(429).json({ erro: `Muitas tentativas. Aguarde ${min} minuto(s).` });
+  }
+  if (reg && agoraMs - reg.inicio >= JANELA_MS) falhasLogin.delete(ip);
+
   const { email, senha } = req.body;
   const user = await db.get('SELECT * FROM usuarios WHERE email = $1', [email]);
   if (!user || !bcrypt.compareSync(senha, user.senha)) {
+    const r = falhasLogin.get(ip) || { n: 0, inicio: agoraMs };
+    r.n++;
+    falhasLogin.set(ip, r);
     return res.status(401).json({ erro: 'Email ou senha incorretos' });
   }
+  falhasLogin.delete(ip);
   req.session.usuario = { id: user.id, nome: user.nome, email: user.email, perfil: user.perfil };
   res.json({ ok: true, nome: user.nome });
 }));
@@ -463,12 +479,16 @@ async function iniciar() {
     await require('./seed')();
   }
 
-  // Cria usuários padrão se não existirem
-  for (const u of usuariosPadrao) {
-    const existe = await db.get('SELECT id FROM usuarios WHERE email = $1', [u.email]);
-    if (!existe) {
-      const hash = bcrypt.hashSync(u.senha, 10);
-      await db.run('INSERT INTO usuarios (nome, email, senha, perfil) VALUES ($1,$2,$3,$4)', [u.nome, u.email, hash, u.perfil]);
+  // Cria um admin inicial apenas se o banco não tiver nenhum usuário.
+  // Senha vem de ADMIN_SENHA; sem ela, gera uma aleatória e mostra no log.
+  const qtdUsuarios = (await db.get('SELECT COUNT(*)::int AS n FROM usuarios')).n;
+  if (qtdUsuarios === 0) {
+    const email = process.env.ADMIN_EMAIL || 'admin@sistema.com';
+    const senha = process.env.ADMIN_SENHA || require('crypto').randomBytes(9).toString('base64url');
+    const hash = bcrypt.hashSync(senha, 10);
+    await db.run('INSERT INTO usuarios (nome, email, senha, perfil) VALUES ($1,$2,$3,$4)', ['Administrador', email, hash, 'admin']);
+    if (!process.env.ADMIN_SENHA) {
+      console.log(`Admin inicial criado: ${email} — senha: ${senha} (troque após o primeiro login)`);
     }
   }
 

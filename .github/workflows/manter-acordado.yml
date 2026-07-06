@@ -1,0 +1,16 @@
+name: Manter site acordado
+
+# O plano free do Render hiberna o servidor após 15 min sem acessos.
+# Este workflow faz um ping a cada 10 minutos em horário de expediente
+# (07h às 19h de Brasília, segunda a sábado) para o site responder rápido.
+on:
+  schedule:
+    - cron: '*/10 10-21 * * 1-6' # horários em UTC (BRT+3)
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping na Central de Monitoramento
+        run: curl -s -o /dev/null -m 120 -w "HTTP %{http_code}\n" https://central-monitoramento-dlzs.onrender.com/login.html

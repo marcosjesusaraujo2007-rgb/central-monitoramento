@@ -19,12 +19,18 @@ Chamados de Link (LCH-xxxx), Usuários, comentários e página de gráficos.
 ## Stack e estrutura
 
 - Backend: Node.js (>=20) + Express + pg — tudo em `backend/`
-  - `server.js` — todas as rotas (async); usuários padrão criados no boot
+  - `server.js` — todas as rotas (async); login com limite de 5 falhas/15min por IP
   - `database.js` — pool do pg + criação do schema (init)
   - `seed.js` — dados de exemplo (`npm run seed`); roda sozinho se o banco estiver vazio
   - `importar-producao.js` — copiou os dados do Railway antigo (histórico)
-- Frontend: `index.html` (SPA única, ~1900 linhas) + `login.html`, servidos pelo Express
-- Sessões: express-session em memória (reinício do servidor desloga todo mundo)
+- Frontend: `index.html` (SPA única, ~2000 linhas) + `login.html`, servidos pelo Express;
+  responsivo (menu hamburger abaixo de 900px)
+- Sessões: express-session + connect-pg-simple (tabela `session` no Postgres — sobrevive a reinícios)
+- Admin inicial: criado no boot APENAS se a tabela usuarios estiver vazia
+  (env ADMIN_EMAIL/ADMIN_SENHA; sem ADMIN_SENHA, gera aleatória e mostra no log).
+  NUNCA colocar senhas no código — o repositório é público.
+- `.github/workflows/manter-acordado.yml` — ping a cada 10 min (7h-19h BRT, seg-sáb)
+  para o Render free não hibernar em horário de expediente
 
 ## Cuidados no SQL (Postgres)
 
@@ -41,4 +47,4 @@ npm install
 npm start        # http://localhost:3000
 ```
 
-Login admin padrão: ver `usuariosPadrao` em `backend/server.js`.
+Login: usar as contas cadastradas na tela Usuários (senhas não ficam no código).
