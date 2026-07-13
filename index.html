@@ -12,7 +12,7 @@
     --bg: #060A12; --bg2: #0C1424; --bg3: #121D35; --bg4: #1A2840;
     --border: #1A2840; --border2: #243652;
     --text: #E2EAF4; --text2: #7A9ABF; --text3: #445E7A;
-    --blue: #1F6FEB; --blue-light: #4D9FFF; --blue-bg: #071A38;
+    --blue: var(--ac); --blue-light: var(--ac-light); --blue-bg: var(--ac-bg);
     --green: #2EA84A; --green-bg: #041508; --green-text: #3DCC5E;
     --yellow: #C8900A; --yellow-bg: #1A1100; --yellow-text: #F0B429;
     --red: #C93030; --red-bg: #1A0606; --red-text: #F26060;
@@ -24,6 +24,39 @@
     --shadow: 0 2px 12px rgba(0,0,0,.4);
     --shadow-lg: 0 4px 24px rgba(0,0,0,.5);
   }
+
+  /* Cor de destaque do sistema (tema) — padrão: azul */
+  :root {
+    --ac: #1F6FEB; --ac-light: #4D9FFF; --ac-hover: #3A85F5;
+    --ac-dark: #1558C8; --ac-deep: #1050C0;
+    --ac-bg: #071A38; --ac-bg2: #0A2248; --ac-rgb: 31,111,235;
+  }
+  body[data-tema="roxo"] {
+    --ac: #7C4DFF; --ac-light: #A78BFA; --ac-hover: #9E7BFF;
+    --ac-dark: #6236D9; --ac-deep: #4E2ABB;
+    --ac-bg: #150A38; --ac-bg2: #1C0F48; --ac-rgb: 124,77,255;
+  }
+  body[data-tema="verde"] {
+    --ac: #16A34A; --ac-light: #34D399; --ac-hover: #22C55E;
+    --ac-dark: #118A3E; --ac-deep: #0C6E31;
+    --ac-bg: #04180C; --ac-bg2: #062010; --ac-rgb: 22,163,74;
+  }
+  body[data-tema="ambar"] {
+    --ac: #D97706; --ac-light: #FBBF24; --ac-hover: #F59E0B;
+    --ac-dark: #B45309; --ac-deep: #92400E;
+    --ac-bg: #1C1102; --ac-bg2: #241604; --ac-rgb: 217,119,6;
+  }
+  body[data-tema="vermelho"] {
+    --ac: #DC2626; --ac-light: #F87171; --ac-hover: #EF4444;
+    --ac-dark: #B91C1C; --ac-deep: #991B1B;
+    --ac-bg: #1C0606; --ac-bg2: #240808; --ac-rgb: 220,38,38;
+  }
+  body[data-tema="ciano"] {
+    --ac: #0891B2; --ac-light: #22D3EE; --ac-hover: #06B6D4;
+    --ac-dark: #0E7490; --ac-deep: #155E75;
+    --ac-bg: #041418; --ac-bg2: #061C20; --ac-rgb: 8,145,178;
+  }
+
   body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; min-height: 100vh; display: flex; }
 
   /* SIDEBAR */
@@ -40,11 +73,11 @@
     background: linear-gradient(180deg, #0F1B30 0%, var(--bg2) 100%);
   }
   .logo-badge {
-    background: linear-gradient(135deg, #1F6FEB 0%, #1050C0 100%);
+    background: linear-gradient(135deg, var(--ac) 0%, var(--ac-deep) 100%);
     color: #fff; font-family: var(--mono); font-size: 10px; font-weight: 700;
     padding: 4px 10px; border-radius: 6px; letter-spacing: .1em;
     display: inline-block; margin-bottom: 8px;
-    box-shadow: 0 2px 8px rgba(31,111,235,.4);
+    box-shadow: 0 2px 8px rgba(var(--ac-rgb),.4);
   }
   .logo-name { font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: -.2px; }
   .logo-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
@@ -63,8 +96,8 @@
   }
   .nav-item:hover { background: var(--bg3); color: var(--text); border-color: var(--border); }
   .nav-item.active {
-    background: linear-gradient(135deg, #071A38 0%, #0A2248 100%);
-    color: var(--blue-light); border-color: rgba(31,111,235,.35);
+    background: linear-gradient(135deg, var(--ac-bg) 0%, var(--ac-bg2) 100%);
+    color: var(--blue-light); border-color: rgba(var(--ac-rgb),.35);
     box-shadow: inset 0 1px 0 rgba(77,159,255,.1);
   }
   .nav-item.active::before {
@@ -154,14 +187,14 @@
   }
   .btn:hover { background: var(--bg4); color: var(--text); border-color: var(--border2); }
   .btn-primary {
-    background: linear-gradient(135deg, #1F6FEB 0%, #1458C8 100%);
-    border-color: #1F6FEB; color: #fff;
-    box-shadow: 0 2px 10px rgba(31,111,235,.35);
+    background: linear-gradient(135deg, var(--ac) 0%, var(--ac-dark) 100%);
+    border-color: var(--ac); color: #fff;
+    box-shadow: 0 2px 10px rgba(var(--ac-rgb),.35);
   }
   .btn-primary:hover {
-    background: linear-gradient(135deg, #3A85F5 0%, #1F6FEB 100%);
-    border-color: #4D9FFF;
-    box-shadow: 0 3px 14px rgba(31,111,235,.5);
+    background: linear-gradient(135deg, var(--ac-hover) 0%, var(--ac) 100%);
+    border-color: var(--ac-light);
+    box-shadow: 0 3px 14px rgba(var(--ac-rgb),.5);
     transform: translateY(-1px);
   }
   .content { padding: 24px 28px; flex: 1; }
@@ -208,7 +241,7 @@
     display: flex; align-items: center; justify-content: center;
     font-size: 22px; flex-shrink: 0;
   }
-  .kpi-icon.blue { background: linear-gradient(135deg,#071A38,#0A2248); color: var(--blue-light); box-shadow: 0 0 14px rgba(31,111,235,.2); }
+  .kpi-icon.blue { background: linear-gradient(135deg,var(--ac-bg),var(--ac-bg2)); color: var(--blue-light); box-shadow: 0 0 14px rgba(var(--ac-rgb),.2); }
   .kpi-icon.green { background: linear-gradient(135deg,#041508,#071E0C); color: var(--green-text); box-shadow: 0 0 14px rgba(46,168,74,.2); }
   .kpi-icon.yellow { background: linear-gradient(135deg,#1A1100,#231800); color: var(--yellow-text); box-shadow: 0 0 14px rgba(200,144,10,.2); }
   .kpi-icon.red { background: linear-gradient(135deg,#1A0606,#240A0A); color: var(--red-text); box-shadow: 0 0 14px rgba(201,48,48,.2); }
@@ -243,7 +276,7 @@
     color: var(--text); font-size: 12px; width: 230px; font-family: var(--font);
     transition: border-color .18s, box-shadow .18s;
   }
-  .search-box input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(31,111,235,.12); }
+  .search-box input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(var(--ac-rgb),.12); }
   .search-box i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text3); font-size: 15px; }
   .filter-chip {
     padding: 6px 13px; border-radius: 99px; border: 1px solid var(--border);
@@ -251,7 +284,7 @@
     cursor: pointer; font-family: var(--font); transition: all .18s; font-weight: 500;
   }
   .filter-chip:hover { border-color: var(--border2); color: var(--text); background: var(--bg3); }
-  .filter-chip.on { background: var(--blue-bg); color: var(--blue-light); border-color: rgba(31,111,235,.45); box-shadow: 0 0 8px rgba(31,111,235,.15); }
+  .filter-chip.on { background: var(--blue-bg); color: var(--blue-light); border-color: rgba(var(--ac-rgb),.45); box-shadow: 0 0 8px rgba(var(--ac-rgb),.15); }
   .table-wrap {
     background: var(--bg2); border: 1px solid var(--border);
     border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 16px;
@@ -273,7 +306,7 @@
   .pill-red { background: var(--red-bg); color: var(--red-text); border: 1px solid rgba(201,48,48,.2); }
   .pill-yellow { background: var(--yellow-bg); color: var(--yellow-text); border: 1px solid rgba(200,144,10,.2); }
   .pill-green { background: var(--green-bg); color: var(--green-text); border: 1px solid rgba(46,168,74,.2); }
-  .pill-blue { background: var(--blue-bg); color: var(--blue-light); border: 1px solid rgba(31,111,235,.2); }
+  .pill-blue { background: var(--blue-bg); color: var(--blue-light); border: 1px solid rgba(var(--ac-rgb),.2); }
   .pill-orange { background: var(--orange-bg); color: var(--orange-text); border: 1px solid rgba(176,80,16,.2); }
   .pill-purple { background: var(--purple-bg); color: var(--purple-text); border: 1px solid rgba(90,48,192,.2); }
   .pill-gray { background: var(--bg4); color: var(--text2); border: 1px solid var(--border); }
@@ -328,10 +361,10 @@
   .dash-module-title a {
     font-size: 11px; color: var(--blue-light); text-decoration: none;
     cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
-    padding: 3px 10px; border-radius: 99px; border: 1px solid rgba(31,111,235,.3);
+    padding: 3px 10px; border-radius: 99px; border: 1px solid rgba(var(--ac-rgb),.3);
     transition: all .15s;
   }
-  .dash-module-title a:hover { background: var(--blue-bg); border-color: rgba(31,111,235,.5); }
+  .dash-module-title a:hover { background: var(--blue-bg); border-color: rgba(var(--ac-rgb),.5); }
   .dash-rows-wrap { padding: 4px 0; }
   .dash-row {
     display: flex; align-items: center; gap: 10px;
@@ -396,11 +429,25 @@
     cursor: pointer; transition: all .2s; box-shadow: var(--shadow);
   }
   .stat-card:hover { border-color: var(--border2); transform: translateY(-1px); box-shadow: var(--shadow-lg); }
-  .stat-card.active-filter { border-color: var(--blue-light); background: var(--blue-bg); box-shadow: 0 0 16px rgba(31,111,235,.15); }
+  .stat-card.active-filter { border-color: var(--blue-light); background: var(--blue-bg); box-shadow: 0 0 16px rgba(var(--ac-rgb),.15); }
 
   /* Acessibilidade: reduz movimento para quem prefere */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  }
+
+  /* Seletor de tema */
+  .tema-op {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    padding: 14px 8px; border: 1px solid var(--border); border-radius: var(--radius-lg);
+    cursor: pointer; font-size: 12px; color: var(--text2); font-weight: 600;
+    transition: border-color .15s, background .15s, transform .15s;
+  }
+  .tema-op:hover { border-color: var(--border2); background: var(--bg3); transform: translateY(-2px); }
+  .tema-op.on { border-color: var(--ac-light); background: rgba(var(--ac-rgb),.08); box-shadow: 0 0 12px rgba(var(--ac-rgb),.2); }
+  .tema-bola {
+    width: 34px; height: 34px; border-radius: 50%;
+    box-shadow: 0 2px 10px rgba(0,0,0,.4);
   }
 
   /* MOBILE */
@@ -502,6 +549,7 @@
     </div>
     <div class="topbar-actions">
       <span id="dash-updated" style="font-size:11px;color:#6E7681;display:none;"><i class="ti ti-refresh" style="font-size:13px;margin-right:4px;"></i>Atualizado às <span id="dash-updated-time"></span></span>
+      <button class="btn" onclick="document.getElementById('modal-tema').classList.add('open')" title="Cor do sistema"><i class="ti ti-palette"></i></button>
       <button class="btn" onclick="exportCSV()"><i class="ti ti-download"></i> Exportar</button>
       <button class="btn btn-primary" onclick="openNovoChamado()"><i class="ti ti-plus"></i> Novo</button>
     </div>
@@ -790,6 +838,39 @@
   </div>
 </div>
 
+<!-- MODAL TEMA -->
+<div class="modal-overlay" id="modal-tema" onclick="if(event.target===this)closeModal('tema')">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-head">
+      <div style="font-size:16px;font-weight:600;color:#E6EDF3;"><i class="ti ti-palette" style="margin-right:8px;color:var(--ac-light)"></i>Cor do Sistema</div>
+      <button class="modal-close" onclick="closeModal('tema')">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--text3);margin-bottom:16px;">Escolha a cor de destaque. A preferência fica salva neste navegador.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+        <div class="tema-op" data-tema="" onclick="aplicarTema('',this)">
+          <span class="tema-bola" style="background:linear-gradient(135deg,#1F6FEB,#4D9FFF)"></span>Azul
+        </div>
+        <div class="tema-op" data-tema="roxo" onclick="aplicarTema('roxo',this)">
+          <span class="tema-bola" style="background:linear-gradient(135deg,#7C4DFF,#A78BFA)"></span>Roxo
+        </div>
+        <div class="tema-op" data-tema="verde" onclick="aplicarTema('verde',this)">
+          <span class="tema-bola" style="background:linear-gradient(135deg,#16A34A,#34D399)"></span>Verde
+        </div>
+        <div class="tema-op" data-tema="ambar" onclick="aplicarTema('ambar',this)">
+          <span class="tema-bola" style="background:linear-gradient(135deg,#D97706,#FBBF24)"></span>Âmbar
+        </div>
+        <div class="tema-op" data-tema="vermelho" onclick="aplicarTema('vermelho',this)">
+          <span class="tema-bola" style="background:linear-gradient(135deg,#DC2626,#F87171)"></span>Vermelho
+        </div>
+        <div class="tema-op" data-tema="ciano" onclick="aplicarTema('ciano',this)">
+          <span class="tema-bola" style="background:linear-gradient(135deg,#0891B2,#22D3EE)"></span>Ciano
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL DETALHE -->
 <div class="modal-overlay" id="modal-detalhe" onclick="if(event.target===this)closeModal('detalhe')">
   <div class="modal-box">
@@ -1013,7 +1094,7 @@ function renderCompras() {
   document.getElementById('next-compras').disabled = pages.compras>=pages_;
   document.getElementById('tbody-compras').innerHTML = slice.length ? slice.map(c=>`
     <tr>
-      <td class="mono" style="color:#388BFD;font-weight:700;">${c.id}</td>
+      <td class="mono" style="color:var(--ac-light);font-weight:700;">${c.id}</td>
       <td style="max-width:220px;"><span style="color:#E6EDF3;font-weight:500;">${c.desc}</span></td>
       <td>${c.solicitante}</td>
       <td><span class="tag">${c.depto}</span></td>
@@ -1087,7 +1168,7 @@ function renderManut() {
   document.getElementById('next-manut').disabled = pages.manut>=pages_;
   document.getElementById('tbody-manut').innerHTML = slice.length ? slice.map(c=>`
     <tr>
-      <td class="mono" style="color:#388BFD;font-weight:700;">${c.id}</td>
+      <td class="mono" style="color:var(--ac-light);font-weight:700;">${c.id}</td>
       <td style="max-width:200px;"><span style="color:#E6EDF3;font-weight:500;">${c.desc}</span></td>
       <td>${c.local}</td>
       <td><span class="tag">${c.tipo}</span></td>
@@ -1112,7 +1193,7 @@ function renderLinksChamados() {
   if(!tbody) return;
   tbody.innerHTML = linksChamados.length ? linksChamados.map(c=>`
     <tr>
-      <td class="mono" style="color:#388BFD;font-weight:700;">${c.id}</td>
+      <td class="mono" style="color:var(--ac-light);font-weight:700;">${c.id}</td>
       <td style="color:#E6EDF3;font-weight:500;">${c.linkNome}</td>
       <td><span class="tag">${c.tipo}</span></td>
       <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.desc}</td>
@@ -1226,7 +1307,7 @@ function renderDashboard() {
 
   // Função helper para botão "Ver todos"
   const verTodos = (page, navId, label='Ver todos') =>
-    `<button onclick="goPage('${page}',document.getElementById('${navId}'))" style="font-size:11px;background:none;border:1px solid #30363D;color:#388BFD;padding:3px 10px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:4px;"><i class="ti ti-arrow-right" style="font-size:12px;"></i>${label}</button>`;
+    `<button onclick="goPage('${page}',document.getElementById('${navId}'))" style="font-size:11px;background:none;border:1px solid #30363D;color:var(--ac-light);padding:3px 10px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:4px;"><i class="ti ti-arrow-right" style="font-size:12px;"></i>${label}</button>`;
 
   const emptyRow = (msg) => `<div style="padding:24px 0;text-align:center;color:#6E7681;font-size:12px;">${msg}</div>`;
 
@@ -1257,7 +1338,7 @@ function renderDashboard() {
     </div>
     <div class="dash-module">
       <div class="dash-module-title">
-        <span><i class="ti ti-wifi" style="margin-right:6px;color:#388BFD"></i>Chamados de Link Abertos</span>
+        <span><i class="ti ti-wifi" style="margin-right:6px;color:var(--ac-light)"></i>Chamados de Link Abertos</span>
         ${verTodos('links','nav-links')}
       </div>
       ${lc.filter(x=>x.status!=='Resolvido').slice(0,5).map(x=>`
@@ -2034,7 +2115,7 @@ async function renderUsuarios() {
   document.getElementById('tbody-usuarios').innerHTML = usuarios.map(u => `
     <tr>
       <td style="font-weight:500">${u.nome}</td>
-      <td style="color:#388BFD">${u.email}</td>
+      <td style="color:var(--ac-light)">${u.email}</td>
       <td><span class="pill ${u.perfil==='admin'?'pill-blue':'pill-gray'}">${u.perfil==='admin'?'Admin':'Usuário'}</span></td>
       <td style="display:flex;gap:6px;">
         <button class="action-btn" onclick='editarUsuario(${JSON.stringify(u)})'><i class="ti ti-pencil"></i></button>
@@ -2095,6 +2176,19 @@ async function excluirUsuario(id, nome) {
 }
 
 // ============================================================
+// TEMA (cor do sistema)
+// ============================================================
+function aplicarTema(tema, el) {
+  if (tema) document.body.dataset.tema = tema;
+  else delete document.body.dataset.tema;
+  localStorage.setItem('tema-central', tema);
+  document.querySelectorAll('.tema-op').forEach(o => o.classList.toggle('on', o.dataset.tema === tema));
+  if (el) mostrarToast('Cor do sistema alterada!');
+}
+// Aplica o tema salvo assim que a página carrega (antes do login até)
+aplicarTema(localStorage.getItem('tema-central') || '');
+
+// ============================================================
 // RELATÓRIO MENSAL
 // ============================================================
 function montarSeletorMeses() {
@@ -2150,7 +2244,7 @@ function renderInventario() {
 
   document.getElementById('tbody-inventario').innerHTML = lista.length ? lista.map(e => `
     <tr>
-      <td class="mono" style="color:#388BFD">${e.id}</td>
+      <td class="mono" style="color:var(--ac-light)">${e.id}</td>
       <td style="font-weight:500">${e.nome}</td>
       <td>${e.categoria || '—'}</td>
       <td>${e.local || '—'}</td>
