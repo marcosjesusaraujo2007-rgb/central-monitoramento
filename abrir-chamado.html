@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Abrir Chamado — Central de Monitoramento TI</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #080C14;
+    color: #DDE6F0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(circle at 15% 20%, rgba(31,111,235,.12) 0%, transparent 45%),
+      radial-gradient(circle at 85% 80%, rgba(77,159,255,.08) 0%, transparent 45%);
+    pointer-events: none;
+  }
+
+  .grid-lines {
+    position: fixed; inset: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(31,111,235,.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(31,111,235,.05) 1px, transparent 1px);
+    background-size: 60px 60px;
+    animation: grid-drift 12s linear infinite;
+  }
+  @keyframes grid-drift { from { background-position: 0 0; } to { background-position: 60px 60px; } }
+
+  .card {
+    position: relative;
+    width: 100%;
+    max-width: 480px;
+    background: #0A0F1C;
+    border: 1px solid #1E2D4A;
+    border-radius: 16px;
+    padding: 32px;
+    box-shadow: 0 8px 40px rgba(0,0,0,.5);
+    animation: fade-up .6s ease-out both;
+  }
+  @keyframes fade-up { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
+
+  .head { text-align: center; margin-bottom: 26px; }
+  .head .icone {
+    width: 56px; height: 56px; margin: 0 auto 14px;
+    background: linear-gradient(135deg, #0D1B2E, #0F2040);
+    border: 1px solid #1F6FEB; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px; color: #4D9FFF;
+    box-shadow: 0 0 24px rgba(31,111,235,.3);
+  }
+  .head h1 { font-size: 20px; font-weight: 700; }
+  .head h1 span { color: #4D9FFF; }
+  .head p { font-size: 13px; color: #4A6A8A; margin-top: 6px; }
+
+  .field { margin-bottom: 16px; }
+  label {
+    display: block; font-size: 12px; color: #7A9ABF; margin-bottom: 6px;
+    font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+  }
+  input, select, textarea {
+    width: 100%; background: #0F1629; border: 1px solid #1E2D4A;
+    border-radius: 10px; color: #DDE6F0; font-size: 14px;
+    padding: 12px 14px; outline: none; font-family: inherit;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  textarea { resize: vertical; min-height: 96px; }
+  input:focus, select:focus, textarea:focus {
+    border-color: #1F6FEB; box-shadow: 0 0 0 3px rgba(31,111,235,.15);
+  }
+
+  .btn {
+    width: 100%; background: linear-gradient(135deg, #1F6FEB 0%, #1558C8 100%);
+    color: #fff; border: none; border-radius: 10px;
+    font-size: 14px; font-weight: 700; padding: 13px;
+    cursor: pointer; margin-top: 6px; transition: all .2s; letter-spacing: .03em;
+  }
+  .btn:hover:not(:disabled) { background: linear-gradient(135deg, #3A85F5 0%, #1F6FEB 100%); box-shadow: 0 4px 20px rgba(31,111,235,.4); transform: translateY(-1px); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  .erro {
+    background: rgba(200,40,40,.1); border: 1px solid rgba(200,40,40,.3);
+    color: #F26060; border-radius: 8px; padding: 10px 14px;
+    font-size: 13px; margin-top: 14px; display: none; text-align: center;
+  }
+
+  .rodape { text-align: center; margin-top: 18px; font-size: 12px; }
+  .rodape a { color: #4A6A8A; text-decoration: none; }
+  .rodape a:hover { color: #4D9FFF; }
+
+  /* Tela de sucesso */
+  .sucesso { display: none; text-align: center; padding: 12px 0; }
+  .sucesso .check {
+    width: 72px; height: 72px; margin: 0 auto 18px; border-radius: 50%;
+    background: rgba(46,168,74,.12); border: 2px solid #2EA84A;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 34px; color: #56D364;
+    animation: pop .45s cubic-bezier(.34,1.56,.64,1) both;
+  }
+  @keyframes pop { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .sucesso h2 { font-size: 19px; margin-bottom: 8px; }
+  .sucesso .protocolo {
+    font-family: Consolas, monospace; font-size: 28px; font-weight: 700;
+    color: #4D9FFF; background: #0F1629; border: 1px dashed #1F6FEB;
+    border-radius: 10px; padding: 12px; margin: 16px 0;
+    letter-spacing: .08em;
+  }
+  .sucesso p { font-size: 13px; color: #7A9ABF; line-height: 1.6; }
+  .sucesso .btn { margin-top: 20px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="grid-lines"></div>
+
+<div class="card">
+  <div id="form-area">
+    <div class="head">
+      <div class="icone">🛠️</div>
+      <h1>Abrir <span>Chamado</span></h1>
+      <p>Relate um problema para a equipe de TI e Manutenção — sem precisar de senha</p>
+    </div>
+
+    <div class="field">
+      <label>Seu nome</label>
+      <input id="nome" maxlength="80" placeholder="Ex.: Prof. Ana Souza">
+    </div>
+
+    <div class="field">
+      <label>Local / sala</label>
+      <input id="local" maxlength="80" placeholder="Ex.: Sala 12, Laboratório, Pátio">
+    </div>
+
+    <div class="field">
+      <label>Tipo de problema</label>
+      <select id="tipo">
+        <option>Informática / TI</option>
+        <option>Elétrica</option>
+        <option>Hidráulica</option>
+        <option>Refrigeração</option>
+        <option>Segurança</option>
+        <option selected>Geral</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Descreva o problema</label>
+      <textarea id="desc" maxlength="500" placeholder="Ex.: O projetor da sala 12 não liga desde ontem."></textarea>
+    </div>
+
+    <button class="btn" id="btnEnviar" onclick="enviar()">Enviar chamado</button>
+    <div class="erro" id="erro"></div>
+
+    <div class="rodape"><a href="/">Sou da equipe — fazer login</a></div>
+  </div>
+
+  <div class="sucesso" id="sucesso">
+    <div class="check">✓</div>
+    <h2>Chamado registrado!</h2>
+    <p>Anote o número de protocolo para acompanhar com a equipe de TI:</p>
+    <div class="protocolo" id="protocolo">—</div>
+    <p>A equipe já consegue ver o seu chamado no painel e vai atender conforme a prioridade.</p>
+    <button class="btn" onclick="novoChamado()">Abrir outro chamado</button>
+  </div>
+</div>
+
+<script>
+  async function enviar() {
+    const nome = document.getElementById('nome').value.trim();
+    const local = document.getElementById('local').value.trim();
+    const tipo = document.getElementById('tipo').value;
+    const desc = document.getElementById('desc').value.trim();
+    const erro = document.getElementById('erro');
+    const btn = document.getElementById('btnEnviar');
+
+    erro.style.display = 'none';
+    if (!nome || !desc) {
+      erro.textContent = 'Preencha pelo menos o seu nome e a descrição do problema.';
+      erro.style.display = 'block';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Enviando…';
+    try {
+      const res = await fetch('/api/publico/chamado', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nome, local, tipo, desc })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.erro || 'Erro ao enviar. Tente novamente.');
+      document.getElementById('protocolo').textContent = data.id;
+      document.getElementById('form-area').style.display = 'none';
+      document.getElementById('sucesso').style.display = 'block';
+    } catch (e) {
+      erro.textContent = e.message;
+      erro.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Enviar chamado';
+    }
+  }
+
+  function novoChamado() {
+    document.getElementById('desc').value = '';
+    document.getElementById('sucesso').style.display = 'none';
+    document.getElementById('form-area').style.display = 'block';
+  }
+</script>
+</body>
+</html>

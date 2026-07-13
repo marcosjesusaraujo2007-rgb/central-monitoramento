@@ -47,6 +47,10 @@ app.get('/', (req, res) => {
   }
 });
 
+// Páginas públicas (sem login)
+app.get('/abrir-chamado', (req, res) => res.sendFile(path.join(FRONT, 'abrir-chamado.html')));
+app.get('/tv', (req, res) => res.sendFile(path.join(FRONT, 'tv.html')));
+
 // Proteção contra força bruta: 5 falhas por IP a cada 15 minutos
 const falhasLogin = new Map();
 const LIMITE_FALHAS = 5, JANELA_MS = 15 * 60 * 1000;
@@ -457,6 +461,174 @@ app.delete('/api/usuarios/:id', autenticado, ah(async (req, res) => {
   if (Number(req.params.id) === req.session.usuario.id) return res.status(400).json({ erro: 'Não pode excluir a si mesmo' });
   await db.run('DELETE FROM usuarios WHERE id = $1', [req.params.id]);
   res.json({ ok: true });
+}));
+
+// ============================================================
+// CHAMADO PÚBLICO (formulário sem login para professores)
+// ============================================================
+const enviosPublicos = new Map(); // rate limit: 5 chamados por IP a cada 15 min
+
+app.post('/api/publico/chamado', ah(async (req, res) => {
+  const ip = req.ip;
+  const agoraMs = Date.now();
+  const reg = enviosPublicos.get(ip);
+  if (reg && agoraMs - reg.inicio < JANELA_MS && reg.n >= 5) {
+    return res.status(429).json({ erro: 'Você enviou muitos chamados seguidos. Aguarde alguns minutos.' });
+  }
+  if (reg && agoraMs - reg.inicio >= JANELA_MS) enviosPublicos.delete(ip);
+
+  const nome = String(req.body.nome || '').trim().slice(0, 80);
+  const local = String(req.body.local || '').trim().slice(0, 80);
+  const tipo = String(req.body.tipo || 'Geral').trim().slice(0, 40);
+  const desc = String(req.body.desc || '').trim().slice(0, 500);
+  if (!nome || !desc) return res.status(400).json({ erro: 'Preencha seu nome e a descrição do problema.' });
+
+  const r = enviosPublicos.get(ip) || { n: 0, inicio: agoraMs };
+  r.n++;
+  enviosPublicos.set(ip, r);
+
+  const { id, numero } = await proximoId('manutencao', 'MNT');
+  await db.run(`
+    INSERT INTO manutencao (id, numero, "desc", local, tipo, resp, status, sla, prioridade, data_abertura, data_conclusao)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, null)
+  `, [id, numero, `${desc} — solicitado por ${nome}`, local || '—', tipo, '—', 'Aberto', '—', 'Média', agora()]);
+  res.json({ ok: true, id });
+}));
+
+// ============================================================
+// MODO TV (dados agregados, sem valores financeiros)
+// ============================================================
+app.get('/api/publico/tv', ah(async (req, res) => {
+  const [m, l, lc] = await Promise.all([
+    db.all('SELECT id, "desc", local, status, prioridade, data_abertura FROM manutencao ORDER BY numero DESC'),
+    db.all('SELECT status FROM links'),
+    db.all('SELECT id, "linkNome", "desc", status FROM links_chamados ORDER BY numero DESC'),
+  ]);
+  const emAberto = m.filter(x => !['Concluído', 'Cancelado'].includes(x.status));
+  const criticos = emAberto.filter(x => x.status === 'Crítico');
+  const ordem = { 'Crítico': 0, 'Em andamento': 1, 'Aberto': 2 };
+  const lista = [...emAberto].sort((a, b) => (ordem[a.status] ?? 9) - (ordem[b.status] ?? 9)).slice(0, 8);
+  res.json({
+    criticos: criticos.length,
+    abertos: emAberto.length,
+    linksOffline: l.filter(x => x.status === 'offline').length,
+    linksTotal: l.length,
+    chamadosLink: lc.filter(x => !['Resolvido', 'Cancelado'].includes(x.status)).length,
+    lista,
+  });
+}));
+
+// ============================================================
+// INVENTÁRIO DE EQUIPAMENTOS
+// ============================================================
+app.get('/api/equipamentos', autenticado, ah(async (req, res) => {
+  res.json(await db.all('SELECT * FROM equipamentos ORDER BY numero DESC'));
+}));
+
+app.post('/api/equipamentos', autenticado, ah(async (req, res) => {
+  const { nome, categoria, local, estado, serie, obs } = req.body;
+  if (!nome || !nome.trim()) return res.status(400).json({ erro: 'Informe o nome do equipamento' });
+  const { id, numero } = await proximoId('equipamentos', 'EQP');
+  await db.run(`
+    INSERT INTO equipamentos (id, numero, nome, categoria, local, estado, serie, obs, data_cadastro)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+  `, [id, numero, nome.trim(), categoria || 'Outro', local || '—', estado || 'Em uso', serie || '', obs || '', agora()]);
+  res.json({ ok: true, id });
+}));
+
+app.put('/api/equipamentos/:id', autenticado, ah(async (req, res) => {
+  const { nome, categoria, local, estado, serie, obs } = req.body;
+  await db.run(`
+    UPDATE equipamentos SET nome=$1, categoria=$2, local=$3, estado=$4, serie=$5, obs=$6 WHERE id=$7
+  `, [nome, categoria, local, estado, serie || '', obs || '', req.params.id]);
+  res.json({ ok: true });
+}));
+
+app.delete('/api/equipamentos/:id', autenticado, ah(async (req, res) => {
+  if (req.session.usuario.perfil !== 'admin') return res.status(403).json({ erro: 'Sem permissão' });
+  await db.run('DELETE FROM equipamentos WHERE id = $1', [req.params.id]);
+  res.json({ ok: true });
+}));
+
+// ============================================================
+// RELATÓRIO MENSAL (Excel)
+// ============================================================
+app.get('/api/relatorio', autenticado, ah(async (req, res) => {
+  const mes = String(req.query.mes || '');
+  if (!/^\d{4}-\d{2}$/.test(mes)) return res.status(400).json({ erro: 'Informe o mês no formato AAAA-MM' });
+  const [ano, mm] = mes.split('-');
+
+  // Datas do sistema são texto "dd/mm/aaaa hh:mm"
+  const noMes = d => {
+    if (!d) return false;
+    const p = d.split(' ')[0].split('/');
+    return p[1] === mm && p[2] === ano;
+  };
+  const paraData = d => {
+    if (!d) return null;
+    const [dt, hr] = d.split(' ');
+    const [dd, m2, aa] = dt.split('/');
+    return new Date(`${aa}-${m2}-${dd}T${(hr || '00:00')}:00`);
+  };
+
+  const [compras, manutencao, chamadosLink] = await Promise.all([
+    db.all('SELECT * FROM compras ORDER BY numero'),
+    db.all('SELECT * FROM manutencao ORDER BY numero'),
+    db.all('SELECT * FROM links_chamados ORDER BY numero'),
+  ]);
+
+  const mAbertas = manutencao.filter(x => noMes(x.data_abertura));
+  const mConcluidas = manutencao.filter(x => noMes(x.data_conclusao));
+  const cAbertas = compras.filter(x => noMes(x.data_abertura));
+  const cEntregues = compras.filter(x => x.status === 'Entregue' && noMes(x.data_conclusao));
+  const lcMes = chamadosLink.filter(x => noMes(x.data_abertura));
+
+  // Tempo médio de resolução das manutenções concluídas no mês (em horas)
+  const temposH = mConcluidas
+    .map(x => { const a = paraData(x.data_abertura), c = paraData(x.data_conclusao); return a && c ? (c - a) / 36e5 : null; })
+    .filter(v => v !== null && v >= 0);
+  const tempoMedio = temposH.length ? (temposH.reduce((s, v) => s + v, 0) / temposH.length).toFixed(1) + ' h' : '—';
+
+  const somaValor = arr => arr.reduce((s, x) => s + (Number(x.valor) || 0), 0);
+  const moeda = v => 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+
+  const wb = XLSX.utils.book_new();
+
+  const resumo = XLSX.utils.aoa_to_sheet([
+    [`Central de Monitoramento TI — Relatório ${mm}/${ano}`],
+    [],
+    ['Indicador', 'Valor'],
+    ['Manutenções abertas no mês', mAbertas.length],
+    ['Manutenções concluídas no mês', mConcluidas.length],
+    ['Tempo médio de resolução', tempoMedio],
+    ['Críticos abertos no mês', mAbertas.filter(x => x.status === 'Crítico').length],
+    ['Pedidos de compra abertos no mês', cAbertas.length],
+    ['Valor pedido no mês', moeda(somaValor(cAbertas))],
+    ['Pedidos entregues no mês', cEntregues.length],
+    ['Valor entregue no mês', moeda(somaValor(cEntregues))],
+    ['Chamados de link no mês', lcMes.length],
+  ]);
+  resumo['!cols'] = [{ wch: 36 }, { wch: 18 }];
+  XLSX.utils.book_append_sheet(wb, resumo, 'Resumo');
+
+  const abaManut = XLSX.utils.aoa_to_sheet([
+    ['ID', 'Descrição', 'Local', 'Tipo', 'Responsável', 'Status', 'Prioridade', 'Abertura', 'Conclusão'],
+    ...mAbertas.map(x => [x.id, x.desc, x.local, x.tipo, x.resp, x.status, x.prioridade, x.data_abertura, x.data_conclusao || '']),
+  ]);
+  abaManut['!cols'] = [10, 45, 16, 14, 14, 13, 11, 17, 17].map(w => ({ wch: w }));
+  XLSX.utils.book_append_sheet(wb, abaManut, 'Manutenções');
+
+  const abaCompras = XLSX.utils.aoa_to_sheet([
+    ['ID', 'Descrição', 'Solicitante', 'Depto', 'Valor (R$)', 'Status', 'Prioridade', 'Abertura', 'Conclusão'],
+    ...cAbertas.map(x => [x.id, x.desc, x.solicitante, x.depto, x.valor, x.status, x.prioridade, x.data_abertura, x.data_conclusao || '']),
+  ]);
+  abaCompras['!cols'] = [10, 45, 16, 12, 12, 13, 11, 17, 17].map(w => ({ wch: w }));
+  XLSX.utils.book_append_sheet(wb, abaCompras, 'Compras');
+
+  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  res.setHeader('Content-Disposition', `attachment; filename="relatorio_${mes}.xlsx"`);
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.send(buf);
 }));
 
 // Tratador de erros das rotas async

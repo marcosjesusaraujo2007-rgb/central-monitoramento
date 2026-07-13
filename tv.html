@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Central de Monitoramento — Modo TV</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #080C14;
+    color: #DDE6F0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 2.2vh 2.5vw;
+    overflow: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(circle at 10% 10%, rgba(31,111,235,.10) 0%, transparent 40%),
+      radial-gradient(circle at 90% 90%, rgba(77,159,255,.07) 0%, transparent 40%);
+    pointer-events: none;
+  }
+
+  .topo {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 2.4vh;
+  }
+  .topo .titulo { font-size: 2.6vh; font-weight: 700; letter-spacing: -.02em; }
+  .topo .titulo span { color: #4D9FFF; }
+  .topo .titulo .dot {
+    display: inline-block; width: 1.1vh; height: 1.1vh; border-radius: 50%;
+    background: #2EA84A; margin-right: 1vw; box-shadow: 0 0 8px #2EA84A;
+    animation: heartbeat 2.4s ease-in-out infinite;
+  }
+  @keyframes heartbeat {
+    0%, 100% { transform: scale(1); opacity: .75; }
+    50% { transform: scale(1.35); opacity: 1; }
+  }
+  .topo .relogio { font-family: Consolas, monospace; font-size: 3.2vh; color: #7A9ABF; }
+
+  .kpis {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 1.6vw; margin-bottom: 2.4vh;
+  }
+  .kpi {
+    background: #0A0F1C; border: 1px solid #1E2D4A; border-radius: 1.6vh;
+    padding: 2.6vh 1.5vw; text-align: center;
+    box-shadow: 0 4px 24px rgba(0,0,0,.4);
+  }
+  .kpi .num { font-size: 8vh; font-weight: 800; font-family: Consolas, monospace; line-height: 1; }
+  .kpi .lbl { font-size: 1.8vh; color: #7A9ABF; margin-top: 1.2vh; text-transform: uppercase; letter-spacing: .06em; }
+  .kpi.vermelho .num { color: #F85149; }
+  .kpi.vermelho.ativo { border-color: rgba(248,81,73,.5); animation: alerta 2.2s ease-in-out infinite; }
+  @keyframes alerta {
+    0%, 100% { box-shadow: 0 4px 24px rgba(0,0,0,.4); }
+    50% { box-shadow: 0 0 34px rgba(248,81,73,.35); }
+  }
+  .kpi.azul .num { color: #4D9FFF; }
+  .kpi.verde .num { color: #56D364; }
+  .kpi.amarelo .num { color: #E3B341; }
+
+  .lista {
+    flex: 1; background: #0A0F1C; border: 1px solid #1E2D4A;
+    border-radius: 1.6vh; padding: 2vh 1.8vw; overflow: hidden;
+    box-shadow: 0 4px 24px rgba(0,0,0,.4);
+  }
+  .lista h2 { font-size: 2.2vh; color: #7A9ABF; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 1.6vh; }
+  .item {
+    display: flex; align-items: center; gap: 1.4vw;
+    padding: 1.5vh 0; border-bottom: 1px solid #121D33;
+    font-size: 2.5vh;
+  }
+  .item:last-child { border-bottom: none; }
+  .item .cod { font-family: Consolas, monospace; color: #4D9FFF; font-size: 2vh; flex-shrink: 0; }
+  .item .txt { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item .loc { color: #7A9ABF; font-size: 2vh; flex-shrink: 0; }
+  .pill {
+    flex-shrink: 0; font-size: 1.7vh; font-weight: 700; padding: .6vh 1.2vw;
+    border-radius: 99px; text-transform: uppercase; letter-spacing: .04em;
+  }
+  .pill.critico { background: rgba(201,48,48,.15); color: #F85149; border: 1px solid rgba(201,48,48,.4); animation: pulse-pill 1.6s ease-in-out infinite; }
+  @keyframes pulse-pill { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+  .pill.andamento { background: rgba(210,120,20,.12); color: #E8A03C; border: 1px solid rgba(210,120,20,.35); }
+  .pill.aberto { background: rgba(31,111,235,.12); color: #4D9FFF; border: 1px solid rgba(31,111,235,.35); }
+
+  .vazio { text-align: center; color: #2EA84A; font-size: 3vh; padding: 8vh 0; }
+  .rodape { text-align: center; color: #2A3F5F; font-size: 1.6vh; margin-top: 1.6vh; }
+</style>
+</head>
+<body>
+
+<div class="topo">
+  <div class="titulo"><span class="dot"></span>Central de <span>Monitoramento</span> — TI</div>
+  <div class="relogio" id="relogio">--:--:--</div>
+</div>
+
+<div class="kpis">
+  <div class="kpi vermelho" id="kpi-criticos"><div class="num" id="n-criticos">0</div><div class="lbl">Críticos</div></div>
+  <div class="kpi azul"><div class="num" id="n-abertos">0</div><div class="lbl">Chamados em aberto</div></div>
+  <div class="kpi verde"><div class="num" id="n-links">0/0</div><div class="lbl">Links online</div></div>
+  <div class="kpi amarelo"><div class="num" id="n-chlink">0</div><div class="lbl">Chamados de link</div></div>
+</div>
+
+<div class="lista">
+  <h2>Chamados que precisam de atenção</h2>
+  <div id="itens"></div>
+</div>
+
+<div class="rodape">Atualiza sozinho a cada 60 segundos — <span id="atualizado">carregando…</span></div>
+
+<script>
+  function relogio() {
+    document.getElementById('relogio').textContent = new Date().toLocaleTimeString('pt-BR');
+  }
+  setInterval(relogio, 1000); relogio();
+
+  const pillCls = { 'Crítico': 'critico', 'Em andamento': 'andamento', 'Aberto': 'aberto' };
+
+  async function atualizar() {
+    try {
+      const d = await fetch('/api/publico/tv').then(r => r.json());
+      document.getElementById('n-criticos').textContent = d.criticos;
+      document.getElementById('kpi-criticos').classList.toggle('ativo', d.criticos > 0);
+      document.getElementById('n-abertos').textContent = d.abertos;
+      document.getElementById('n-links').textContent = (d.linksTotal - d.linksOffline) + '/' + d.linksTotal;
+      document.getElementById('n-chlink').textContent = d.chamadosLink;
+
+      const itens = document.getElementById('itens');
+      if (!d.lista.length) {
+        itens.innerHTML = '<div class="vazio">✓ Nenhum chamado em aberto — tudo em ordem!</div>';
+      } else {
+        itens.innerHTML = d.lista.map(x => `
+          <div class="item">
+            <span class="cod">${x.id}</span>
+            <span class="txt">${x.desc}</span>
+            <span class="loc">${x.local || ''}</span>
+            <span class="pill ${pillCls[x.status] || 'aberto'}">${x.status}</span>
+          </div>`).join('');
+      }
+      document.getElementById('atualizado').textContent = 'última atualização às ' + new Date().toLocaleTimeString('pt-BR');
+    } catch {
+      document.getElementById('atualizado').textContent = 'falha ao atualizar — tentando de novo em 60s';
+    }
+  }
+  atualizar();
+  setInterval(atualizar, 60000);
+</script>
+</body>
+</html>

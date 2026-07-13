@@ -469,6 +469,9 @@
       <i class="ti ti-wifi"></i> Links de Internet
       <span class="nav-badge ok" id="nb-links">0</span>
     </div>
+    <div class="nav-item" onclick="goPage('inventario',this)" id="nav-inventario">
+      <i class="ti ti-device-laptop"></i> Inventário
+    </div>
     <div class="nav-section">Ações</div>
     <div class="nav-item" onclick="openNovoChamado()">
       <i class="ti ti-plus"></i> Novo Chamado
@@ -515,6 +518,13 @@
 
     <!-- ==================== GRÁFICOS ==================== -->
     <div class="page" id="page-graficos">
+      <div class="section-header">
+        <div class="section-title"><i class="ti ti-file-spreadsheet" style="font-size:18px"></i> Relatório mensal</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select class="form-input" id="rel-mes" style="width:auto;padding:7px 10px;font-size:12px;"></select>
+          <button class="btn btn-primary" onclick="baixarRelatorio()"><i class="ti ti-download"></i> Baixar Excel</button>
+        </div>
+      </div>
       <div class="charts-kpi" id="graficos-kpi"></div>
       <div class="charts-row">
         <div class="chart-card">
@@ -619,6 +629,32 @@
       </div>
     </div>
 
+    <!-- PÁGINA INVENTÁRIO -->
+    <div class="page" id="page-inventario">
+      <div class="cards-row" id="inv-metrics"></div>
+      <div class="section-header">
+        <div class="section-title"><i class="ti ti-device-laptop" style="font-size:18px"></i> Inventário de Equipamentos</div>
+        <button class="btn btn-primary" onclick="openNovoEquip()"><i class="ti ti-plus"></i> Novo Equipamento</button>
+      </div>
+      <div class="filters-row">
+        <div class="search-box">
+          <i class="ti ti-search"></i>
+          <input id="busca-inv" placeholder="Buscar equipamento..." oninput="renderInventario()">
+        </div>
+        <button class="filter-chip on" onclick="setFiltroInv('todos',this)">Todos</button>
+        <button class="filter-chip" onclick="setFiltroInv('Em uso',this)">Em uso</button>
+        <button class="filter-chip" onclick="setFiltroInv('Em manutenção',this)">Em manutenção</button>
+        <button class="filter-chip" onclick="setFiltroInv('Reserva',this)">Reserva</button>
+        <button class="filter-chip" onclick="setFiltroInv('Baixado',this)">Baixados</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>Equipamento</th><th>Categoria</th><th>Local</th><th>Nº de Série</th><th>Estado</th><th>Cadastro</th><th>Ações</th></tr></thead>
+          <tbody id="tbody-inventario"></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- PÁGINA USUÁRIOS -->
     <div class="page" id="page-usuarios">
       <div class="section-header">
@@ -699,6 +735,61 @@
   </div>
 </div>
 
+<!-- MODAL EQUIPAMENTO -->
+<div class="modal-overlay" id="modal-equip" onclick="if(event.target===this)closeModal('equip')">
+  <div class="modal-box" style="max-width:460px;">
+    <div class="modal-head">
+      <div style="font-size:16px;font-weight:600;color:#E6EDF3;" id="modal-equip-titulo">Novo Equipamento</div>
+      <button class="modal-close" onclick="closeModal('equip')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="e-id">
+      <div class="form-row">
+        <label class="form-label">Nome do equipamento</label>
+        <input class="form-input" id="e-nome" placeholder="Ex: Notebook Dell Latitude 3420">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Categoria</label>
+        <select class="form-input" id="e-categoria">
+          <option>Notebook</option>
+          <option>Computador</option>
+          <option>Projetor</option>
+          <option>TV</option>
+          <option>Impressora</option>
+          <option>Rede (roteador/switch)</option>
+          <option>Som e Áudio</option>
+          <option>Outro</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Local</label>
+        <input class="form-input" id="e-local" placeholder="Ex: Sala 12, Laboratório, Secretaria">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Estado</label>
+        <select class="form-input" id="e-estado">
+          <option>Em uso</option>
+          <option>Em manutenção</option>
+          <option>Reserva</option>
+          <option>Baixado</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Nº de série / patrimônio (opcional)</label>
+        <input class="form-input" id="e-serie" placeholder="Ex: BR-4F7XK2">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Observações (opcional)</label>
+        <input class="form-input" id="e-obs" placeholder="Ex: comprado em 2024, garantia até 06/2027">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('equip')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarEquip()"><i class="ti ti-check"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL DETALHE -->
 <div class="modal-overlay" id="modal-detalhe" onclick="if(event.target===this)closeModal('detalhe')">
   <div class="modal-box">
@@ -766,6 +857,7 @@ let comprasData = [];
 let manutData = [];
 let linksData = [];
 let linksChamados = [];
+let equipData = [];
 
 // Perfil do usuário logado
 let usuarioLogado = null;
@@ -796,12 +888,14 @@ async function logout() {
 
 // Função que busca todos os dados do servidor e atualiza a tela
 async function carregarDados() {
-  const [compras, manut, links, chamados] = await Promise.all([
+  const [compras, manut, links, chamados, equipamentos] = await Promise.all([
     fetch('/api/compras').then(r => r.json()),
     fetch('/api/manutencao').then(r => r.json()),
     fetch('/api/links').then(r => r.json()),
     fetch('/api/links-chamados').then(r => r.json()),
+    fetch('/api/equipamentos').then(r => r.json()),
   ]);
+  equipData = equipamentos;
   comprasData = compras;
   manutData = manut;
   // Adiciona historico vazio se não vier do banco
@@ -831,6 +925,7 @@ const pageTitles = {
   compras: ['Pedidos de Compra','Acompanhamento de solicitações e aprovações'],
   manutencao: ['Chamados de Manutenção','Ordens de serviço abertas e em andamento'],
   links: ['Chamados de Link','Registro de problemas de conectividade'],
+  inventario: ['Inventário de Equipamentos','Patrimônio de TI e operação da escola'],
   usuarios: ['Gerenciar Usuários','Cadastro e permissões de acesso'],
 };
 // Menu lateral no mobile
@@ -854,6 +949,7 @@ function goPage(id, el) {
   document.getElementById('page-sub').textContent = s;
   if(id === 'usuarios') renderUsuarios();
   if(id === 'graficos') renderGraficos();
+  if(id === 'inventario') renderInventario();
 }
 
 // ============================================================
@@ -1998,9 +2094,137 @@ async function excluirUsuario(id, nome) {
   renderUsuarios();
 }
 
+// ============================================================
+// RELATÓRIO MENSAL
+// ============================================================
+function montarSeletorMeses() {
+  const sel = document.getElementById('rel-mes');
+  const nomes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const hoje = new Date();
+  let html = '';
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+    const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    html += `<option value="${val}">${nomes[d.getMonth()]} ${d.getFullYear()}</option>`;
+  }
+  sel.innerHTML = html;
+}
+
+function baixarRelatorio() {
+  const mes = document.getElementById('rel-mes').value;
+  window.location.href = `/api/relatorio?mes=${mes}`;
+  mostrarToast('Gerando relatório de ' + document.getElementById('rel-mes').selectedOptions[0].textContent + '…');
+}
+
+// ============================================================
+// INVENTÁRIO
+// ============================================================
+let filtroInv = 'todos';
+
+function setFiltroInv(f, el) {
+  filtroInv = f;
+  document.querySelectorAll('#page-inventario .filter-chip').forEach(c => c.classList.remove('on'));
+  if (el) el.classList.add('on');
+  renderInventario();
+}
+
+function pillEstado(e) {
+  const m = { 'Em uso': 'pill-green', 'Em manutenção': 'pill-yellow', 'Reserva': 'pill-blue', 'Baixado': 'pill-gray' };
+  return `<span class="pill ${m[e] || 'pill-gray'}">${e}</span>`;
+}
+
+function renderInventario() {
+  const busca = (document.getElementById('busca-inv').value || '').toLowerCase();
+  let lista = equipData;
+  if (filtroInv !== 'todos') lista = lista.filter(e => e.estado === filtroInv);
+  if (busca) lista = lista.filter(e =>
+    [e.id, e.nome, e.categoria, e.local, e.serie, e.obs].join(' ').toLowerCase().includes(busca));
+
+  const contar = est => equipData.filter(e => e.estado === est).length;
+  document.getElementById('inv-metrics').innerHTML = [
+    { label: 'Total de equipamentos', val: equipData.length, cls: 'blue' },
+    { label: 'Em uso', val: contar('Em uso'), cls: 'green' },
+    { label: 'Em manutenção', val: contar('Em manutenção'), cls: 'yellow' },
+    { label: 'Reserva', val: contar('Reserva'), cls: 'purple' },
+  ].map(c => `<div class="stat-card"><div class="stat-label">${c.label}</div><div class="stat-val ${c.cls}">${c.val}</div></div>`).join('');
+
+  document.getElementById('tbody-inventario').innerHTML = lista.length ? lista.map(e => `
+    <tr>
+      <td class="mono" style="color:#388BFD">${e.id}</td>
+      <td style="font-weight:500">${e.nome}</td>
+      <td>${e.categoria || '—'}</td>
+      <td>${e.local || '—'}</td>
+      <td class="mono">${e.serie || '—'}</td>
+      <td>${pillEstado(e.estado)}</td>
+      <td style="color:var(--text3);font-size:12px;">${(e.data_cadastro || '').split(' ')[0]}</td>
+      <td style="display:flex;gap:6px;">
+        <button class="action-btn" onclick='editarEquip(${JSON.stringify(e).replace(/'/g, "&#39;")})'><i class="ti ti-pencil"></i></button>
+        ${isAdmin() ? `<button class="action-btn" style="color:#F85149" onclick="excluirEquip('${e.id}')"><i class="ti ti-trash"></i></button>` : ''}
+      </td>
+    </tr>`).join('')
+    : '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:28px;">Nenhum equipamento encontrado</td></tr>';
+}
+
+function openNovoEquip() {
+  document.getElementById('e-id').value = '';
+  document.getElementById('e-nome').value = '';
+  document.getElementById('e-categoria').value = 'Notebook';
+  document.getElementById('e-local').value = '';
+  document.getElementById('e-estado').value = 'Em uso';
+  document.getElementById('e-serie').value = '';
+  document.getElementById('e-obs').value = '';
+  document.getElementById('modal-equip-titulo').textContent = 'Novo Equipamento';
+  document.getElementById('modal-equip').classList.add('open');
+}
+
+function editarEquip(e) {
+  document.getElementById('e-id').value = e.id;
+  document.getElementById('e-nome').value = e.nome;
+  document.getElementById('e-categoria').value = e.categoria || 'Outro';
+  document.getElementById('e-local').value = e.local === '—' ? '' : (e.local || '');
+  document.getElementById('e-estado').value = e.estado || 'Em uso';
+  document.getElementById('e-serie').value = e.serie || '';
+  document.getElementById('e-obs').value = e.obs || '';
+  document.getElementById('modal-equip-titulo').textContent = 'Editar Equipamento — ' + e.id;
+  document.getElementById('modal-equip').classList.add('open');
+}
+
+async function salvarEquip() {
+  const id = document.getElementById('e-id').value;
+  const body = {
+    nome: document.getElementById('e-nome').value.trim(),
+    categoria: document.getElementById('e-categoria').value,
+    local: document.getElementById('e-local').value.trim(),
+    estado: document.getElementById('e-estado').value,
+    serie: document.getElementById('e-serie').value.trim(),
+    obs: document.getElementById('e-obs').value.trim(),
+  };
+  if (!body.nome) return alert('Informe o nome do equipamento.');
+  const res = await fetch(id ? `/api/equipamentos/${id}` : '/api/equipamentos', {
+    method: id ? 'PUT' : 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) return alert(data.erro || 'Erro ao salvar.');
+  closeModal('equip');
+  equipData = await fetch('/api/equipamentos').then(r => r.json());
+  renderInventario();
+  mostrarToast(id ? 'Equipamento atualizado!' : `Equipamento cadastrado: ${data.id}`);
+}
+
+async function excluirEquip(id) {
+  if (!confirm(`Excluir o equipamento ${id} do inventário?`)) return;
+  await fetch(`/api/equipamentos/${id}`, { method: 'DELETE' });
+  equipData = await fetch('/api/equipamentos').then(r => r.json());
+  renderInventario();
+  mostrarToast('Equipamento excluído.');
+}
+
 // Carrega os dados do servidor ao iniciar
 verificarSessao().then(() => {
   carregarDados();
+  montarSeletorMeses();
   if (isAdmin()) renderUsuarios();
 });
 </script>

@@ -96,9 +96,22 @@ async function init() {
       data TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS equipamentos (
+      id TEXT PRIMARY KEY,
+      numero INTEGER,
+      nome TEXT NOT NULL,
+      categoria TEXT,
+      local TEXT,
+      estado TEXT,
+      serie TEXT,
+      obs TEXT,
+      data_cadastro TEXT
+    );
+
     INSERT INTO contadores (modulo, ultimo) VALUES ('compras', 0) ON CONFLICT (modulo) DO NOTHING;
     INSERT INTO contadores (modulo, ultimo) VALUES ('manutencao', 0) ON CONFLICT (modulo) DO NOTHING;
     INSERT INTO contadores (modulo, ultimo) VALUES ('links_chamados', 0) ON CONFLICT (modulo) DO NOTHING;
+    INSERT INTO contadores (modulo, ultimo) VALUES ('equipamentos', 0) ON CONFLICT (modulo) DO NOTHING;
   `);
 }
 
