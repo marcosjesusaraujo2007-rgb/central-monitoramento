@@ -57,6 +57,16 @@
     --ac-bg: #041418; --ac-bg2: #061C20; --ac-rgb: 8,145,178;
   }
 
+  /* Tom de fundo — padrão: Azul-noite (valores do :root) */
+  body[data-fundo="grafite"] {
+    --bg: #0A0A0C; --bg2: #131316; --bg3: #1C1C21; --bg4: #26262D;
+    --border: #232329; --border2: #35353E;
+  }
+  body[data-fundo="preto"] {
+    --bg: #000000; --bg2: #0A0A0C; --bg3: #141417; --bg4: #1D1D22;
+    --border: #1B1B1F; --border2: #2C2C33;
+  }
+
   body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; min-height: 100vh; display: flex; }
 
   /* SIDEBAR */
@@ -70,7 +80,7 @@
   .sidebar-logo {
     padding: 20px 18px 16px;
     border-bottom: 1px solid var(--border);
-    background: linear-gradient(180deg, #0F1B30 0%, var(--bg2) 100%);
+    background: linear-gradient(180deg, var(--bg3) 0%, var(--bg2) 100%);
   }
   .logo-badge {
     background: linear-gradient(135deg, var(--ac) 0%, var(--ac-deep) 100%);
@@ -116,7 +126,7 @@
 
   .sidebar-footer {
     padding: 14px 18px; border-top: 1px solid var(--border);
-    background: linear-gradient(0deg, #080E1C 0%, var(--bg2) 100%);
+    background: linear-gradient(0deg, var(--bg) 0%, var(--bg2) 100%);
   }
   .footer-info { font-size: 11px; color: var(--text3); }
   .status-dot {
@@ -168,7 +178,7 @@
   /* MAIN */
   .main { margin-left: 226px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
   .topbar {
-    background: rgba(12,20,36,.92);
+    background: color-mix(in srgb, var(--bg2) 92%, transparent);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border);
     padding: 13px 28px;
@@ -865,6 +875,18 @@
         </div>
         <div class="tema-op" data-tema="ciano" onclick="aplicarTema('ciano',this)">
           <span class="tema-bola" style="background:linear-gradient(135deg,#0891B2,#22D3EE)"></span>Ciano
+        </div>
+      </div>
+      <p style="font-size:12px;color:var(--text3);margin:18px 0 12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">Tom de fundo</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+        <div class="tema-op fundo-op" data-fundo="" onclick="aplicarFundo('',this)">
+          <span class="tema-bola" style="border-radius:10px;background:linear-gradient(135deg,#060A12,#121D35);border:1px solid #243652;"></span>Azul-noite
+        </div>
+        <div class="tema-op fundo-op" data-fundo="grafite" onclick="aplicarFundo('grafite',this)">
+          <span class="tema-bola" style="border-radius:10px;background:linear-gradient(135deg,#0A0A0C,#1C1C21);border:1px solid #35353E;"></span>Grafite
+        </div>
+        <div class="tema-op fundo-op" data-fundo="preto" onclick="aplicarFundo('preto',this)">
+          <span class="tema-bola" style="border-radius:10px;background:linear-gradient(135deg,#000,#141417);border:1px solid #2C2C33;"></span>Preto puro
         </div>
       </div>
     </div>
@@ -2182,11 +2204,21 @@ function aplicarTema(tema, el) {
   if (tema) document.body.dataset.tema = tema;
   else delete document.body.dataset.tema;
   localStorage.setItem('tema-central', tema);
-  document.querySelectorAll('.tema-op').forEach(o => o.classList.toggle('on', o.dataset.tema === tema));
+  document.querySelectorAll('.tema-op:not(.fundo-op)').forEach(o => o.classList.toggle('on', o.dataset.tema === tema));
   if (el) mostrarToast('Cor do sistema alterada!');
 }
-// Aplica o tema salvo assim que a página carrega (antes do login até)
+
+function aplicarFundo(fundo, el) {
+  if (fundo) document.body.dataset.fundo = fundo;
+  else delete document.body.dataset.fundo;
+  localStorage.setItem('fundo-central', fundo);
+  document.querySelectorAll('.fundo-op').forEach(o => o.classList.toggle('on', o.dataset.fundo === fundo));
+  if (el) mostrarToast('Tom de fundo alterado!');
+}
+
+// Aplica o tema e o fundo salvos assim que a página carrega
 aplicarTema(localStorage.getItem('tema-central') || '');
+aplicarFundo(localStorage.getItem('fundo-central') || '');
 
 // ============================================================
 // RELATÓRIO MENSAL
