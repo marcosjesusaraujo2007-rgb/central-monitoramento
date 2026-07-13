@@ -2,7 +2,12 @@
 
 Painel operacional de TI usado pelo Marcos Araújo (marcos.araujo@colegioser.com) no Colégio SER.
 Módulos: Pedidos de Compra (PC-xxxx), Manutenção (MNT-xxxx), Links de Internet (LNK-xxx),
-Chamados de Link (LCH-xxxx), Usuários, comentários e página de gráficos.
+Chamados de Link (LCH-xxxx), Inventário de equipamentos (EQP-xxxx), Usuários, comentários,
+gráficos e relatório mensal em Excel (`/api/relatorio?mes=AAAA-MM`, botão na página Gráficos).
+
+Páginas públicas (sem login): `/abrir-chamado` (formulário para professores abrirem chamados
+de manutenção, rate limit 5/15min por IP, vira MNT com "— solicitado por NOME" na descrição)
+e `/tv` (painel agregado para monitor da sala de TI, atualiza a cada 60s, sem dados financeiros).
 
 ## Infraestrutura (desde jul/2026, custo zero)
 
